@@ -1,4 +1,4 @@
-ecr_repo_name: test-github-actions
+ecr_repo_name: new-relic-repo
 docker_image_tag: latest
 dockerfile_location: ./Dockerfile
 account_name: infssdev
