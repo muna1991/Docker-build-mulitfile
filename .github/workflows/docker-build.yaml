@@ -59,5 +59,5 @@ jobs:
             echo "Region: $region"
 
             # Build the Docker image
-            docker build -t "${account_name}-${region}-${ecr_repo_name}:${docker_image_tag}" -f "$dockerfile_location"
+            docker build -t "${account_name}-${region}-${ecr_repo_name}:${docker_image_tag}" -f "$dockerfile_location" .
           done
