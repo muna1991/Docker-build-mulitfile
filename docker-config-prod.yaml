@@ -1,0 +1,5 @@
+ecr_repo_name: new-ucmdb-repo
+docker_image_tag: latest
+dockerfile_location: ./Dockerfile
+account_name: ssprod
+region: us-west-1
