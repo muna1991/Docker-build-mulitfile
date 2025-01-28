@@ -2,4 +2,4 @@ ecr_repo_name: new-ghct-repo
 docker_image_tag: latest
 dockerfile_location: ./Dockerfile
 account_name: ssdev
-region: us-west-1
+region: us-west-2
