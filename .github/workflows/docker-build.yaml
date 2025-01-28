@@ -5,59 +5,78 @@ on:
     branches:
       - main
     paths:
-      - docker-config-*.yaml  # Trigger workflow only on changes to docker-config-*.yaml
+      - docker-config-*.yaml  # Trigger workflow only on changes to docker-config-*.yaml files
 
 jobs:
-  build-and-push:
+  detect-updates:
     runs-on: self-hosted
+    outputs:
+      updated_files: ${{ steps.detect-configs.outputs.updated_files }}
 
     steps:
       # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Detect updated config files
-      - name: Detect updated config files
+      # Step 2: Detect updated docker-config files
+      - name: Detect updated docker-config files
         id: detect-configs
         run: |
           BEFORE_COMMIT=${{ github.event.before }}
           CURRENT_COMMIT=${{ github.sha }}
-          
           # Get all updated docker-config-*.yaml files
           UPDATED_FILES=$(git diff --name-only "$BEFORE_COMMIT" "$CURRENT_COMMIT" | grep "docker-config-.*\.yaml" || true)
           if [[ -z "$UPDATED_FILES" ]]; then
             echo "No docker-config files changed. Exiting."
             exit 0
           fi
-          
           echo "Updated files: $UPDATED_FILES"
-          echo "updated_files=$UPDATED_FILES" >> $GITHUB_ENV
+          
+          # Join the updated files with a space and store them in the environment variable
+          echo "::set-output name=updated_files::$(echo $UPDATED_FILES | tr '\n' ' ')"
 
-      # Step 3: Install yq for YAML parsing
-      # - name: Install yq
-      #   run: |
-      #     sudo wget https://github.com/mikefarah/yq/releases/download/v4.30.6/yq_linux_amd64 -O /usr/local/bin/yq
-      #     sudo chmod +x /usr/local/bin/yq
+  build-and-push:
+    needs: detect-updates
+    runs-on: ubuntu-latest
 
-      # Step 4: Iterate through updated files and build/push Docker images
-      - name: Build and Push Docker Images
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Get the updated files from the previous job
+      - name: Get updated files from previous job
         run: |
-          for CONFIG_FILE in ${{ env.updated_files }}; do
+          echo "Updated files: ${{ needs.detect-updates.outputs.updated_files }}"
+
+      # Step 3: Build Docker images for each updated config file
+      - name: Build and Push Docker images
+        run: |
+          UPDATED_FILES="${{ needs.detect-updates.outputs.updated_files }}"
+          
+          # Iterate through updated files
+          for CONFIG_FILE in $UPDATED_FILES; do
             echo "Processing $CONFIG_FILE..."
+            
+            # Extract variables from the updated config file
+            ecr_repo_name=$(yq eval '.ecr_repo_name' "$CONFIG_FILE")
+            docker_image_tag=$(yq eval '.docker_image_tag' "$CONFIG_FILE")
+            dockerfile_location=$(yq eval '.dockerfile_location' "$CONFIG_FILE")
+            account_name=$(yq eval '.account_name' "$CONFIG_FILE")
+            region=$(yq eval '.region' "$CONFIG_FILE")
 
-            # Extract variables from the config file
-            ecr_repo_name=$(yq '.ecr_repo_name' "$CONFIG_FILE")
-            docker_image_tag=$(yq '.docker_image_tag' "$CONFIG_FILE")
-            dockerfile_location=$(yq '.dockerfile_location' "$CONFIG_FILE")
-            account_name=$(yq '.account_name' "$CONFIG_FILE")
-            region=$(yq '.region' "$CONFIG_FILE")
-
-            echo "ECR Repo Name: $ecr_repo_name"
+            echo "ECR Repo: $ecr_repo_name"
             echo "Docker Image Tag: $docker_image_tag"
             echo "Dockerfile Location: $dockerfile_location"
             echo "Account Name: $account_name"
             echo "Region: $region"
 
+            # Ensure Dockerfile exists
+            if [[ ! -f "$dockerfile_location" ]]; then
+              echo "Dockerfile not found at $dockerfile_location. Exiting."
+              exit 1
+            fi
+
             # Build the Docker image
-            docker build -t "${account_name}-${region}-${ecr_repo_name}:${docker_image_tag}" -f "$dockerfile_location" .
+            docker build -t "$account_name-$region-$ecr_repo_name:$docker_image_tag" -f "$dockerfile_location" .
           done
