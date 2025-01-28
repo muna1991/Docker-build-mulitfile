@@ -20,15 +20,16 @@ jobs:
       - name: Detect updated config files
         id: detect-configs
         run: |
-          # Get all updated docker-config-*.yaml files
-          UPDATED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep "docker-config-.*\.yaml")
+          BEFORE_COMMIT=${{ github.event.before }}
+          CURRENT_COMMIT=${{ github.sha }}
+        # Get all updated docker-config-*.yaml files
+          UPDATED_FILES=$(git diff --name-only "$BEFORE_COMMIT" "$CURRENT_COMMIT" | grep "docker-config-.*\.yaml")
           if [[ -z "$UPDATED_FILES" ]]; then
             echo "No docker-config files changed. Exiting."
             exit 0
           fi
-          echo "Updated files: $UPDATED_FILES"
+          echo "Updatedfile $UPDATED_FILES"
           echo "updated_files=$UPDATED_FILES" >> $GITHUB_ENV
-
        # Step 3: Install yq for YAML parsing
       # - name: Install yq
       #   run: sudo apt-get install -y jq && pip install yq
