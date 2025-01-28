@@ -1,5 +1,5 @@
 ecr_repo_name: test-github-actions
 docker_image_tag: latest
 dockerfile_location: ./Dockerfile
-account_name: infdev
-region: us-west-2
+account_name: infssdev
+region: us-west-1
