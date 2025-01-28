@@ -1,0 +1,56 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    # paths:
+    #   - docker-config-*.yaml  # Trigger workflow only on changes to docker-config-*.yaml
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Detect updated config files
+      - name: Detect updated config files
+        id: detect-configs
+        run: |
+          # Get all updated docker-config-*.yaml files
+          UPDATED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep "docker-config-.*\.yaml")
+          if [[ -z "$UPDATED_FILES" ]]; then
+            echo "No docker-config files changed. Exiting."
+            exit 0
+          fi
+          echo "Updated files: $UPDATED_FILES"
+          echo "updated_files=$UPDATED_FILES" >> $GITHUB_ENV
+
+       # Step 3: Install yq for YAML parsing
+      # - name: Install yq
+      #   run: sudo apt-get install -y jq && pip install yq
+
+      # Step 4: Iterate through updated files
+      - name: Build and Push Images
+        run: |
+          for CONFIG_FILE in ${{ env.updated_files }}; do
+            echo "Processing $CONFIG_FILE..."
+
+            # Extract variables from the config file
+            ecr_repo_name=$(yq '.ecr_repo_name' "$CONFIG_FILE")
+            docker_image_tag=$(yq '.docker_image_tag' "$CONFIG_FILE")
+            dockerfile_location=$(yq '.dockerfile_location' "$CONFIG_FILE")
+            account_name=$(yq '.account_name' "$CONFIG_FILE")
+            region=$(yq '.region' "$CONFIG_FILE")
+
+            echo "ECR Repo: $ecr_repo_name"
+            echo "Docker Image Tag: $docker_image_tag"
+            echo "Dockerfile Location: $dockerfile_location"
+            echo "Account Name: $account_name"
+            echo "Region: $region"
+            # Build the Docker image
+            docker build -t "$account_name-$ecr_repo_name:$docker_image_tag" "$dockerfile_location"
+          done
