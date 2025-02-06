@@ -1,82 +1,13 @@
-name: Build and Push Docker Images
+name: Build and Deploy
 
 on:
   push:
     branches:
       - main
-    paths:
-      - docker-config-*.yaml  # Trigger workflow only on changes to docker-config-*.yaml files
 
 jobs:
-  detect-updates:
-    runs-on: self-hosted
-    outputs:
-      matrix: ${{ steps.detect-configs.outputs.matrix }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Detect updated docker-config files
-        id: detect-configs
-        run: |
-          BEFORE_COMMIT=${{ github.event.before }}
-          CURRENT_COMMIT=${{ github.sha }}
-
-          UPDATED_FILES=$(git diff --name-only "$BEFORE_COMMIT" "$CURRENT_COMMIT" | grep "docker-config-.*\.yaml" || true)
-
-          if [[ -z "$UPDATED_FILES" ]]; then
-            echo "No docker-config files changed. Exiting."
-            exit 0
-          fi
-
-          echo "Updated files: $UPDATED_FILES"
-
-          # Convert updated files into JSON format for matrix
-          JSON_ARRAY=$(echo "$UPDATED_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-
-          echo "::set-output name=matrix::$JSON_ARRAY"
-
   build-and-push:
-    needs: detect-updates
-    runs-on: ubuntu-latest
-    if: needs.detect-updates.outputs.matrix != '[]'
-    strategy:
-      matrix:
-        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix) }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Extract Variables from Config File
-        id: extract-vars
-        run: |
-          CONFIG_FILE="${{ matrix.config_file }}"
-          echo "Processing $CONFIG_FILE..."
-
-          ecr_repo_name=$(yq eval '.ecr_repo_name' "$CONFIG_FILE")
-          docker_image_tag=$(yq eval '.docker_image_tag' "$CONFIG_FILE")
-          dockerfile_location=$(yq eval '.dockerfile_location' "$CONFIG_FILE")
-          account_name=$(yq eval '.account_name' "$CONFIG_FILE")
-          region=$(yq eval '.region' "$CONFIG_FILE")
-
-          echo "ecr_repo_name=$ecr_repo_name" >> $GITHUB_ENV
-          echo "docker_image_tag=$docker_image_tag" >> $GITHUB_ENV
-          echo "dockerfile_location=$dockerfile_location" >> $GITHUB_ENV
-          echo "account_name=$account_name" >> $GITHUB_ENV
-          echo "region=$region" >> $GITHUB_ENV
-
-      - name: Validate Dockerfile Path
-        run: |
-          if [[ ! -f "$dockerfile_location" ]]; then
-            echo "Dockerfile not found at $dockerfile_location. Exiting."
-            exit 1
-          fi
-
-      - name: Build and Push Docker Image
-        run: |
-          IMAGE_TAG="$account_name-$region-$ecr_repo_name:$docker_image_tag"
-
-          echo "Building Docker image: $IMAGE_TAG"
-          docker build --no-cache -t "$IMAGE_TAG" -f "$dockerfile_location" .
+    uses: muna1991/docker-lib-multifile-build/.github/workflows/dokcer-library.yaml@main 
+    with:
+      branch: "main"
+      paths: "docker-config-*.yaml"
