@@ -11,72 +11,72 @@ jobs:
   detect-updates:
     runs-on: self-hosted
     outputs:
-      updated_files: ${{ steps.detect-configs.outputs.updated_files }}
+      matrix: ${{ steps.detect-configs.outputs.matrix }}
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Detect updated docker-config files
       - name: Detect updated docker-config files
         id: detect-configs
         run: |
           BEFORE_COMMIT=${{ github.event.before }}
           CURRENT_COMMIT=${{ github.sha }}
-          # Get all updated docker-config-*.yaml files
+
           UPDATED_FILES=$(git diff --name-only "$BEFORE_COMMIT" "$CURRENT_COMMIT" | grep "docker-config-.*\.yaml" || true)
+
           if [[ -z "$UPDATED_FILES" ]]; then
             echo "No docker-config files changed. Exiting."
             exit 0
           fi
+
           echo "Updated files: $UPDATED_FILES"
-          
-          # Join the updated files with a space and store them in the environment variable
-          echo "::set-output name=updated_files::$(echo $UPDATED_FILES | tr '\n' ' ')"
+
+          # Convert updated files into JSON format for matrix
+          JSON_ARRAY=$(echo "$UPDATED_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+
+          echo "::set-output name=matrix::$JSON_ARRAY"
 
   build-and-push:
     needs: detect-updates
     runs-on: ubuntu-latest
+    if: needs.detect-updates.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix) }}
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Get the updated files from the previous job
-      - name: Get updated files from previous job
+      - name: Extract Variables from Config File
+        id: extract-vars
         run: |
-          echo "Updated files: ${{ needs.detect-updates.outputs.updated_files }}"
+          CONFIG_FILE="${{ matrix.config_file }}"
+          echo "Processing $CONFIG_FILE..."
 
-      # Step 3: Build Docker images for each updated config file
-      - name: Build and Push Docker images
+          ecr_repo_name=$(yq eval '.ecr_repo_name' "$CONFIG_FILE")
+          docker_image_tag=$(yq eval '.docker_image_tag' "$CONFIG_FILE")
+          dockerfile_location=$(yq eval '.dockerfile_location' "$CONFIG_FILE")
+          account_name=$(yq eval '.account_name' "$CONFIG_FILE")
+          region=$(yq eval '.region' "$CONFIG_FILE")
+
+          echo "ecr_repo_name=$ecr_repo_name" >> $GITHUB_ENV
+          echo "docker_image_tag=$docker_image_tag" >> $GITHUB_ENV
+          echo "dockerfile_location=$dockerfile_location" >> $GITHUB_ENV
+          echo "account_name=$account_name" >> $GITHUB_ENV
+          echo "region=$region" >> $GITHUB_ENV
+
+      - name: Validate Dockerfile Path
         run: |
-          UPDATED_FILES="${{ needs.detect-updates.outputs.updated_files }}"
-          
-          # Iterate through updated files
-          for CONFIG_FILE in $UPDATED_FILES; do
-            echo "Processing $CONFIG_FILE..."
-            
-            # Extract variables from the updated config file
-            ecr_repo_name=$(yq eval '.ecr_repo_name' "$CONFIG_FILE")
-            docker_image_tag=$(yq eval '.docker_image_tag' "$CONFIG_FILE")
-            dockerfile_location=$(yq eval '.dockerfile_location' "$CONFIG_FILE")
-            account_name=$(yq eval '.account_name' "$CONFIG_FILE")
-            region=$(yq eval '.region' "$CONFIG_FILE")
+          if [[ ! -f "$dockerfile_location" ]]; then
+            echo "Dockerfile not found at $dockerfile_location. Exiting."
+            exit 1
+          fi
 
-            echo "ECR Repo: $ecr_repo_name"
-            echo "Docker Image Tag: $docker_image_tag"
-            echo "Dockerfile Location: $dockerfile_location"
-            echo "Account Name: $account_name"
-            echo "Region: $region"
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG="$account_name-$region-$ecr_repo_name:$docker_image_tag"
 
-            # Ensure Dockerfile exists
-            if [[ ! -f "$dockerfile_location" ]]; then
-              echo "Dockerfile not found at $dockerfile_location. Exiting."
-              exit 1
-            fi
-
-            # Build the Docker image
-            docker build --no-cache -t "$account_name-$region-$ecr_repo_name:$docker_image_tag" -f "$dockerfile_location" .
-          done
+          echo "Building Docker image: $IMAGE_TAG"
+          docker build --no-cache -t "$IMAGE_TAG" -f "$dockerfile_location" .
