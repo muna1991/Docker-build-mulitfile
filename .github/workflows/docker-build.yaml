@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main
-    # paths:
-    #   - docker-config-*.yaml
+    paths:
+      - docker-config-*.yaml
 jobs:
   build-and-push:
     uses: muna1991/docker-lib-multifile-build/.github/workflows/dokcer-library.yaml@main 
