@@ -1,5 +1,5 @@
 ecr_repo_name: new-ghct-repo
 docker_image_tag: v2
 dockerfile_location: ./Dockerfile
-account_name: qa
+account_name: uipqa
 region: us-west-1
