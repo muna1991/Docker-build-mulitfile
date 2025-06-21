@@ -7,9 +7,12 @@ jobs:
   docker-build:
     runs-on: self-hosted
     steps:
-      - name: check docker steps
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: build Docker image
         run: |
-          docker image ls
+          docker image build -t new:v1 .
+          
 
   
 
