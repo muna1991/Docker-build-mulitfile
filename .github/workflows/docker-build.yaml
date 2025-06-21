@@ -11,7 +11,7 @@ jobs:
     services:
       docker:
         image: docker:20.10-dind
-        privileged: true
+        # privileged: true
         options: >-
           --entrypoint '' 
           --name docker-dind 
@@ -24,7 +24,7 @@ jobs:
       - name: build Docker image
         run: |
           docker image ls
-          
+
 
       # - name: Set up Docker CLI
       #   uses: docker/setup-buildx-action@v3
