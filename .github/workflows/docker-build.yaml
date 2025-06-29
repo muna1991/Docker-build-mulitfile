@@ -2,8 +2,8 @@ name: Docker Image Build & Push for PR Updates
 
 on:
   push:
-    paths:
-      - "docker-config-*.yaml"
+    # paths:
+    #   - "docker-config-*.yaml"
 
 jobs:
   detect-updates:
