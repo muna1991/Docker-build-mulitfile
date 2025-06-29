@@ -1,7 +1,10 @@
 name: Docker Image Build & Push for PR Updates
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - main
     paths:
       - "docker-config-*.yaml"
 jobs:
