@@ -1,6 +1,12 @@
 name: Docker Image Build & Push for PR Updates
 
 on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "docker-config-*.yaml"
+
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches:
