@@ -2,7 +2,6 @@ name: Docker Image Build & Push for PR Updates
 
 on:
   push:
-
 jobs:
   detect-updates:
     runs-on: self-hosted
