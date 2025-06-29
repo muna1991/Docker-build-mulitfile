@@ -1,8 +1,7 @@
 name: Docker Image Build & Push for PR Updates
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, edited]
+  push:
     branches:
       - main
     paths:
