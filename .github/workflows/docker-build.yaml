@@ -4,8 +4,8 @@ on:
   push:
     branches-ignore:
       - feature/test-automation
-    paths:
-      - "docker-config-*.yaml"
+    # paths:
+    #   - "docker-config-*.yaml"
 
   # pull_request:
   #   types: [opened, synchronize, reopened, edited]
