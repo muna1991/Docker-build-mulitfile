@@ -1,5 +1,0 @@
-ecr_repo_name: new-ucmdb-repo
-docker_image_tag: v2
-dockerfile_location: ./Dockerfile
-account_name: prod
-region: us-west-2

@@ -1,0 +1,39 @@
+name: Extract Account Info
+description: Parse bundled account-map.yaml to export env vars
+
+inputs:
+  acc_name:
+    description: Account name key to look up in the map
+    required: true
+
+outputs:
+  account_number:
+    value: ${{ steps.extract.outputs.account_number }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Parse Account Number
+      id: extract
+      shell: bash
+      run: |
+        ACCOUNT_KEY="${{ inputs.acc_name }}"
+        ACCOUNT_MAP_FILE="${{ github.action_path }}/config/account-map.yaml"
+
+        echo "🌍 Extracting account number from $ACCOUNT_MAP_FILE using key: $ACCOUNT_KEY"
+
+        if [[ ! -f "$ACCOUNT_MAP_FILE" ]]; then
+          echo "❌ account-map.yaml not found at $ACCOUNT_MAP_FILE"
+          exit 1
+        fi
+
+        account_number=$(yq eval ".\"$ACCOUNT_KEY\"" "$ACCOUNT_MAP_FILE")
+
+        if [[ -z "$account_number" || "$account_number" == "null" ]]; then
+          echo "❌ Account name '$ACCOUNT_KEY' not found in account-map.yaml"
+          exit 1
+        fi
+
+        echo "✅ Found account number: $account_number"
+        echo "account_number=$account_number" >> "$GITHUB_ENV"
+        echo "account_number=$account_number" >> "$GITHUB_OUTPUT"

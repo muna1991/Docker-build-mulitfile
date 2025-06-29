@@ -1,19 +1,147 @@
-name: Build Docker Image with Docker-in-Docker
+name: Docker Image Build & Push for PR Updates
 
 on:
   push:
 
 jobs:
-  docker-build:
-    runs-on: self-hosted
+  detect-updates:
+    runs-on: cds-ghact-runner
+    outputs:
+      matrix: ${{ steps.detect-configs.outputs.matrix }}
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect updated docker-config files in PR
+        id: detect-configs
+        run: |  
+          BASE_BRANCH="origin/${{ github.base_ref }}"
+          git fetch origin ${{ github.base_ref }}
+          UPDATED_FILES=$(git diff --name-only --diff-filter=AMCR "$BASE_BRANCH" HEAD | grep "docker-config.*\.yaml" || true)
+
+          if [[ -z "$UPDATED_FILES" ]]; then
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+          else
+            JSON_ARRAY=$(echo "$UPDATED_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+            echo "matrix=$JSON_ARRAY" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: detect-updates
+    runs-on: cds-ghact-runner
+    if: needs.detect-updates.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: build Docker image
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+      - name: Validate Dockerfile Path
         run: |
-          docker image build -t new:v1 .
-          
+          if [[ ! -f "$dockerfile_location" ]]; then
+            echo "❌ Dockerfile not found at $dockerfile_location. Exiting."
+            exit 1
+          fi
 
-  
+      - name: Build Docker image
+        id: docker-build
+        run: |
+          docker build --no-cache . -f ${{ env.dockerfile_location }} -t ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
 
-  
+  scan:
+    needs: [detect-updates, build]
+    runs-on: cds-ghact-runner
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+      - name: Run Trivy Vulnerability Scan
+        run: |
+          IMAGE_TAG="$account_number.dkr.ecr.$region.amazonaws.com/$ecr_repo_name:$release_tag"
+          echo "🔍 Running Trivy scan on $IMAGE_TAG..."
+          trivy image --format table --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | tee trivy-results-${{ env.release_tag }}.txt
+          VULN_COUNT=$(trivy image --format json --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length')
+
+          if [[ "${{ env.skip_vulnerability }}" == "true" ]]; then
+            echo "⚠️ Skipping vulnerability enforcement as per user input."
+          elif [[ "$VULN_COUNT" -gt 0 ]]; then
+            echo "❌ Vulnerabilities found. Failing the job."
+            exit 1
+          else
+            echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
+          fi
+
+  push:
+    needs: [detect-updates, build, scan]
+    runs-on: cds-ghact-runner
+    environment:
+      name: Release
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+      - name: Role Assume
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
+          aws-region: ${{ env.region }}
+
+      - name: ECR Repo login
+        uses: aws-actions/amazon-ecr-login@v1
+        id: ecr
+
+      - name: Push Docker Image to ECR
+        run: |
+          docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+
+      - name: Cleaning image from runner
+        run: |
+          docker rmi ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}

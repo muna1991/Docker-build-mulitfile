@@ -1,0 +1,34 @@
+name: Extract Variables from Config File
+description: Parse docker config file and export env vars
+inputs:
+  config_file:
+    description: Path to the docker config YAML file
+    required: true
+outputs:
+  acc_name:
+    description: Environment/account name key to lookup
+    value: ${{ steps.set-output.outputs.acc_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Parse Config File
+      id: set-output # ✅ Needed for output reference
+      shell: bash
+      run: |
+        CONFIG_FILE="${{ inputs.config_file }}"
+        ecr_repo_name=$(yq eval '.ecr_repo_name' "$CONFIG_FILE")
+        release_tag=$(yq eval '.docker_image_tag' "$CONFIG_FILE")
+        dockerfile_location=$(yq eval '.dockerfile_location' "$CONFIG_FILE")
+        acc_name=$(yq eval '.account_name' "$CONFIG_FILE" | tr '[:upper:]' '[:lower:]')
+        region_name=$(yq eval '.region' "$CONFIG_FILE" | tr '[:upper:]' '[:lower:]')
+        skip_vulnerability=$(yq eval '.skip_vulnerability // "false"' "$CONFIG_FILE" | tr '[:upper:]' '[:lower:]')
+
+        echo "ecr_repo_name=$ecr_repo_name" >> $GITHUB_ENV
+        echo "release_tag=$release_tag" >> $GITHUB_ENV
+        echo "account_name=$acc_name" >> $GITHUB_ENV
+        echo "dockerfile_location=$dockerfile_location" >> $GITHUB_ENV
+        echo "region=$region_name" >> $GITHUB_ENV
+        echo "skip_vulnerability=$skip_vulnerability" >> $GITHUB_ENV
+
+        echo "acc_name=$acc_name" >> $GITHUB_OUTPUT
