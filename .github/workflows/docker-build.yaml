@@ -5,7 +5,7 @@ on:
 
 jobs:
   detect-updates:
-    runs-on: cds-ghact-runner
+    runs-on: self-hosted
     outputs:
       matrix: ${{ steps.detect-configs.outputs.matrix }}
     steps:
@@ -30,7 +30,7 @@ jobs:
 
   build:
     needs: detect-updates
-    runs-on: cds-ghact-runner
+    runs-on: self-hosted
     if: needs.detect-updates.outputs.matrix != '[]'
     strategy:
       matrix:
@@ -67,7 +67,7 @@ jobs:
 
   scan:
     needs: [detect-updates, build]
-    runs-on: cds-ghact-runner
+    runs-on: self-hosted
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
@@ -102,46 +102,46 @@ jobs:
             echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
           fi
 
-  push:
-    needs: [detect-updates, build, scan]
-    runs-on: cds-ghact-runner
-    environment:
-      name: Release
-    strategy:
-      matrix:
-        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # push:
+  #   needs: [detect-updates, build, scan]
+  #   runs-on: self-hosted
+  #   environment:
+  #     name: Release
+  #   strategy:
+  #     matrix:
+  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Extract Variables from Config File
-        id: extract-vars
-        uses: ./.github/actions/extract-config-file
-        with:
-          config_file: ${{ matrix.config_file }}
+  #     - name: Extract Variables from Config File
+  #       id: extract-vars
+  #       uses: ./.github/actions/extract-config-file
+  #       with:
+  #         config_file: ${{ matrix.config_file }}
 
-      - name: Extract AWS Account Number
-        uses: ./.github/actions/extract-account-number
-        with:
-          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+  #     - name: Extract AWS Account Number
+  #       uses: ./.github/actions/extract-account-number
+  #       with:
+  #         acc_name: ${{ steps.extract-vars.outputs.acc_name }}
 
-      - name: Role Assume
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
-          aws-region: ${{ env.region }}
+  #     - name: Role Assume
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
+  #         aws-region: ${{ env.region }}
 
-      - name: ECR Repo login
-        uses: aws-actions/amazon-ecr-login@v1
-        id: ecr
+  #     - name: ECR Repo login
+  #       uses: aws-actions/amazon-ecr-login@v1
+  #       id: ecr
 
-      - name: Push Docker Image to ECR
-        run: |
-          docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+  #     - name: Push Docker Image to ECR
+  #       run: |
+  #         docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
 
-      - name: Cleaning image from runner
-        run: |
-          docker rmi ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+  #     - name: Cleaning image from runner
+  #       run: |
+  #         docker rmi ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
