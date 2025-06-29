@@ -32,8 +32,6 @@ jobs:
             JSON_ARRAY=$(echo "$UPDATED_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
             echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
           fi
-
-
   build:
     needs: detect-updates
     runs-on: self-hosted
