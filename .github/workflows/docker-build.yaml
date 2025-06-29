@@ -2,32 +2,39 @@ name: Docker Image Build & Push for PR Updates
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "docker-config-*.yaml"
+
 jobs:
   detect-updates:
     runs-on: self-hosted
     outputs:
       matrix: ${{ steps.detect-configs.outputs.matrix }}
     steps:
-      - name: Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Required for full diff
 
-      - name: Detect updated docker-config files in PR
+      - name: Detect updated docker-config files
         id: detect-configs
-        run: |  
-          BASE_BRANCH="origin/${{ github.base_ref }}"
-          git fetch origin ${{ github.base_ref }}
-          UPDATED_FILES=$(git diff --name-only --diff-filter=AMCR "$BASE_BRANCH" HEAD | grep "docker-config.*\.yaml" || true)
+        shell: bash
+        run: |
+          git fetch origin main  # Replace with your default branch if not 'main'
+          BASE_COMMIT=$(git merge-base HEAD origin/main)
+
+          echo "🔍 Comparing changes from $BASE_COMMIT to HEAD..."
+          UPDATED_FILES=$(git diff --name-only --diff-filter=AMCR "$BASE_COMMIT" HEAD | grep "docker-config.*\.yaml" || true)
 
           if [[ -z "$UPDATED_FILES" ]]; then
-            echo "matrix=[]" >> $GITHUB_OUTPUT
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
           else
             JSON_ARRAY=$(echo "$UPDATED_FILES" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-            echo "matrix=$JSON_ARRAY" >> $GITHUB_OUTPUT
+            echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
           fi
+
 
   build:
     needs: detect-updates
