@@ -1,0 +1,20 @@
+name: Slack Build Completed Notifier
+description: Sends a Slack message when Docker image build finishes successfully
+
+inputs:
+  slack_token:
+    required: true
+    description: "this is required parameter"
+  channel_id:
+    required: true
+    description: "this is channel id"
+  image_tag:
+    required: true
+    description: "image tag is required"
+  repository:
+    required: true
+    description: "this is repository name"
+
+runs:
+  using: "node20"
+  main: "index.js"
