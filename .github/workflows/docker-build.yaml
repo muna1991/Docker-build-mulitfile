@@ -146,46 +146,109 @@ jobs:
           channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
+      - name: ⏸ Wait for Slack Approval Window (5 minutes)
+        run: |
+          echo "⏳ Waiting for 5 minutes before checking approval..."
+          sleep 300  # Sleep for 300 seconds = 5 minutes
 
-  push:
-    needs: [detect-updates, build, scan]
+
+  wait_for_approval:
     runs-on: self-hosted
-  #   environment:
-  #     name: Release
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
-    permissions:
-      id-token: write
-      contents: read
+    needs: [detect-updates, build, scan]
+    outputs:
+      status: ${{ steps.get_decision.outputs.status }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Extract Variables from Config File
         id: extract-vars
         uses: ./.github/actions/extract-config-file
         with:
           config_file: ${{ matrix.config_file }}
 
-      - name: Extract AWS Account Number
-        uses: ./.github/actions/extract-account-number
-        with:
-          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
-
-  #     - name: Role Assume
-  #       uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
-  #         aws-region: ${{ env.region }}
-
-  #     - name: ECR Repo login
-  #       uses: aws-actions/amazon-ecr-login@v1
-  #       id: ecr
-
-      - name: Push Docker Image to ECR
+      - name: Fetch approval status from DynamoDB
+        id: get_decision
+        shell: bash
         run: |
-          echo "pushed docker image !!!"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
+          AWS_REGION="us-west-2"
+          IMAGE_TAG="${{ env.ecr_repo_name }}"
+          DECISION_KEY="latest"
+          TABLE="SlackApprovals"
+
+          echo "🔍 Getting approval status from DynamoDB for $IMAGE_TAG / $DECISION_KEY"
+
+          result=$(aws dynamodb get-item \
+            --table-name "$TABLE" \
+            --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
+            --region "$AWS_REGION" \
+            --output json 2>/dev/null || echo "{}")
+
+          echo "$result" | jq .
+
+          STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
+          echo "📦 Retrieved status: $STATUS"
+
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+  push:
+    needs: wait_for_approval
+    if: needs.wait_for_approval.outputs.status == 'approve'
+    runs-on: self-hosted
+    steps:
+      - name: Push Docker Image
+        run: echo "✅ Image approved. Pushing to ECR..."
+
+  reject_handler:
+    needs: wait_for_approval
+    if: needs.wait_for_approval.outputs.status == 'reject'
+    runs-on: self-hosted
+    steps:
+      - name: Stop Deployment
+        run: echo "❌ Deployment rejected by Slack."
+
+  # push:
+  #   needs: [detect-updates, build, scan]
+  #   runs-on: self-hosted
+   #   environment:
+   #     name: Release
+  #   strategy:
+  #     matrix:
+  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Extract Variables from Config File
+  #       id: extract-vars
+  #       uses: ./.github/actions/extract-config-file
+  #       with:
+  #         config_file: ${{ matrix.config_file }}
+
+  #     - name: Extract AWS Account Number
+  #       uses: ./.github/actions/extract-account-number
+  #       with:
+  #         acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+  # #     - name: Role Assume
+  # #       uses: aws-actions/configure-aws-credentials@v4
+  # #       with:
+  # #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
+  # #         aws-region: ${{ env.region }}
+
+  # #     - name: ECR Repo login
+  # #       uses: aws-actions/amazon-ecr-login@v1
+  # #       id: ecr
+
+  #     - name: Push Docker Image to ECR
+  #       run: |
+  #         echo "pushed docker image !!!"
 #docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
 
   #     - name: Cleaning image from runner
