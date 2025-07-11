@@ -170,16 +170,15 @@ jobs:
       - name: Fetch approval status from DynamoDB
         id: get_decision
         shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: us-west-2
+          IMAGE_TAG: new-relic-repo
+          DECISION_KEY: latest
+          TABLE: SlackApprovals
         run: |
-          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
-
-          AWS_REGION="us-west-2"
-          IMAGE_TAG="new-relic-repo"
-          DECISION_KEY="latest"
-          TABLE="SlackApprovals"
-
           echo "⏳ Waiting for Slack approval for image: $IMAGE_TAG / $DECISION_KEY..."
 
           for i in {1..30}; do
@@ -191,8 +190,9 @@ jobs:
               --region "$AWS_REGION" \
               --output json 2>/dev/null || echo "{}")
 
-            STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
+            echo "🔍 Raw result: $result"
 
+            STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
             echo "📦 Retrieved status: $STATUS"
 
             if [[ "$STATUS" == "approve" ]]; then
