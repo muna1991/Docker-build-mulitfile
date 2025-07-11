@@ -180,37 +180,11 @@ jobs:
           TABLE: SlackApprovals
         run: |
           echo "⏳ Waiting for Slack approval for image: $IMAGE_TAG / $DECISION_KEY..."
-
-          for i in {1..30}; do
-            echo "🔁 Poll attempt #$i..."
-
-            result=$(aws dynamodb get-item \
-              --table-name "$TABLE" \
-              --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
-              --region "$AWS_REGION" \
-              --output json 2>/dev/null || echo "{}")
-
-            echo "🔍 Raw result: $result"
-
-            STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
-            echo "📦 Retrieved status: $STATUS"
-
-            if [[ "$STATUS" == "approve" ]]; then
-              echo "✅ Approved"
-              echo "status=approve" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$STATUS" == "reject" ]]; then
-              echo "❌ Rejected"
-              echo "status=reject" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            sleep 10
-          done
-
-          echo "⏰ Timeout waiting for approval in DynamoDB"
-          echo "status=timeout" >> "$GITHUB_OUTPUT"
-          exit 1
+          aws dynamodb get-item \
+          --table-name "$TABLE" \
+          --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
+          --region "$AWS_REGION" \
+          --output json
 
 
   push:
