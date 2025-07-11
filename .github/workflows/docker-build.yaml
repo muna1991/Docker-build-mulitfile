@@ -174,25 +174,44 @@ jobs:
           export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
           export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
+
           AWS_REGION="us-west-2"
           IMAGE_TAG="${{ env.ecr_repo_name }}"
           DECISION_KEY="latest"
           TABLE="SlackApprovals"
 
-          echo "🔍 Getting approval status from DynamoDB for $IMAGE_TAG / $DECISION_KEY"
+          echo "⏳ Waiting for Slack approval for image: $IMAGE_TAG / $DECISION_KEY..."
 
-          result=$(aws dynamodb get-item \
-            --table-name "$TABLE" \
-            --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
-            --region "$AWS_REGION" \
-            --output json 2>/dev/null || echo "{}")
+          for i in {1..30}; do
+            echo "🔁 Poll attempt #$i..."
 
-          echo "$result" | jq .
+            result=$(aws dynamodb get-item \
+              --table-name "$TABLE" \
+              --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
+              --region "$AWS_REGION" \
+              --output json 2>/dev/null || echo "{}")
 
-          STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
-          echo "📦 Retrieved status: $STATUS"
+            STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
 
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+            echo "📦 Retrieved status: $STATUS"
+
+            if [[ "$STATUS" == "approve" ]]; then
+              echo "✅ Approved"
+              echo "status=approve" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$STATUS" == "reject" ]]; then
+              echo "❌ Rejected"
+              echo "status=reject" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "⏰ Timeout waiting for approval in DynamoDB"
+          echo "status=timeout" >> "$GITHUB_OUTPUT"
+          exit 1
+
 
   push:
     needs: wait_for_approval
