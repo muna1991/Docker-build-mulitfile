@@ -100,4 +100,95 @@ jobs:
       - name: Force Fail After Notification
         if: steps.docker-build.outcome == 'failure'
         run: exit 1
-      
+
+  scan:
+    needs: [detect-updates, build]
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+      - name: Run Trivy Vulnerability Scan
+        id: scan
+        run: |
+          IMAGE_TAG="$account_number.dkr.ecr.$region.amazonaws.com/$ecr_repo_name:$release_tag"
+          echo "🔍 Running Trivy scan on $IMAGE_TAG..."
+          trivy image --format table --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | tee trivy-results-${{ env.release_tag }}.txt
+          VULN_COUNT=$(trivy image --format json --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length')
+
+          if [[ "${{ env.skip_vulnerability }}" == "true" ]]; then
+            echo "⚠️ Skipping vulnerability enforcement as per user input."
+          elif [[ "$VULN_COUNT" -gt 0 ]]; then
+            echo "❌ Vulnerabilities found. Failing the job."
+            exit 1
+          else
+            echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
+          fi
+      - name: Send Slack Approval Request
+        if: steps.scan.outcome == 'success'
+        uses: ./.github/actions/send-approval-slack
+        with:
+          slack_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+
+  push:
+    needs: [detect-updates, build, scan]
+    runs-on: self-hosted
+  #   environment:
+  #     name: Release
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+  #     - name: Role Assume
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
+  #         aws-region: ${{ env.region }}
+
+  #     - name: ECR Repo login
+  #       uses: aws-actions/amazon-ecr-login@v1
+  #       id: ecr
+
+      - name: Push Docker Image to ECR
+        run: |
+          echo "pushed docker image !!!"
+#docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+
+  #     - name: Cleaning image from runner
+  #       run: |
+  #         docker rmi ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+    
