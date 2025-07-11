@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - "docker-config-*.yaml"
-
 jobs:
   detect-updates:
     runs-on: self-hosted
