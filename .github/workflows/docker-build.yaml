@@ -78,7 +78,7 @@ jobs:
         id: docker-build
         continue-on-error: true
         run: |
-          docker build --no-cache . -f ${{ env.dockerfile_location }} -t ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }} lsls
+          docker build --no-cache . -f ${{ env.dockerfile_location }} -t ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
 
       - name: Notify Build completed
         if: steps.docker-build.outcome == 'success'
