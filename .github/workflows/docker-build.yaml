@@ -149,7 +149,7 @@ jobs:
       - name: ⏸ Wait for Slack Approval Window (5 minutes)
         run: |
           echo "⏳ Waiting for 5 minutes before checking approval..."
-          sleep 300  # Sleep for 300 seconds = 5 minutes
+          sleep 60  # Sleep for 300 seconds = 5 minutes
 
 
   wait_for_approval:
