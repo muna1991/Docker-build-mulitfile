@@ -176,7 +176,7 @@ jobs:
           export AWS_SESSION_TOKEN="${{ secrets.AWS_SESSION_TOKEN }}"
 
           AWS_REGION="us-west-2"
-          IMAGE_TAG="${{ env.ecr_repo_name }}"
+          IMAGE_TAG="new-relic-repo"
           DECISION_KEY="latest"
           TABLE="SlackApprovals"
 
