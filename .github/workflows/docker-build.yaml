@@ -97,4 +97,7 @@ jobs:
             channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
             repository: ${{ env.ecr_repo_name }}
             image_tag: ${{ env.release_tag }}
+      - name: Force Fail After Notification
+        if: steps.docker-build.outcome == 'failure'
+        run: exit 1
       
