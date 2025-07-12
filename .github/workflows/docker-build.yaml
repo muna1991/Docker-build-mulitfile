@@ -71,9 +71,9 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
           aws-region: us-west-2
-          
+
       - name: Fetch Slack secrets
-        uses: ./.github/actions/fetch-slack-secret
+        uses: ./.github/actions/fetch-slack-secrets
         id: slack_secrets
 
       - name: Notify Build Started
