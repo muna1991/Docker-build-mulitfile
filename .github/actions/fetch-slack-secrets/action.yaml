@@ -28,8 +28,8 @@ runs:
 
         echo "$secret" | jq .
 
-        slack_token=$(echo "$secret" | jq -r '.slack_token')
-        channel_id=$(echo "$secret" | jq -r '.channel_id')
+        slack_token=$(echo "$secret" | jq -r '.SLACK_BOT_TOKEN')
+        channel_id=$(echo "$secret" | jq -r '.SLACK_CHANNEL_ID')
 
         echo "slack_token=$slack_token" >> "$GITHUB_OUTPUT"
         echo "channel_id=$channel_id" >> "$GITHUB_OUTPUT"
