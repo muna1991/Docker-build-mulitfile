@@ -44,7 +44,7 @@ jobs:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
     permissions:
       id-token: write
-      contents: read    
+      contents: read  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,11 +66,21 @@ jobs:
             echo "❌ Dockerfile not found at $dockerfile_location. Exiting."
             exit 1
           fi
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
+          
+      - name: Fetch Slack secrets
+        uses: ./.github/actions/fetch-slack-secret
+        id: slack_secrets
+
       - name: Notify Build Started
         uses: ./.github/actions/slack-build-start
         with:
-          slack_token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
           
@@ -79,13 +89,13 @@ jobs:
         continue-on-error: true
         run: |
           docker build --no-cache . -f ${{ env.dockerfile_location }} -t ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
-
+          
       - name: Notify Build completed
         if: steps.docker-build.outcome == 'success'
         uses: ./.github/actions/slack-build-complete
         with:
-          slack_token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
 
@@ -93,10 +103,11 @@ jobs:
         if: steps.docker-build.outcome == 'failure'
         uses: ./.github/actions/slack-build-failed
         with:
-            slack_token: ${{ secrets.SLACK_BOT_TOKEN }}
-            channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+            slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+            channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
             repository: ${{ env.ecr_repo_name }}
             image_tag: ${{ env.release_tag }}
+
       - name: Force Fail After Notification
         if: steps.docker-build.outcome == 'failure'
         run: exit 1
