@@ -158,6 +158,31 @@ jobs:
           role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
           aws-region: us-west-2
 
+      - name: Upload Trivy Report to S3
+        id: s3-upload
+        if: steps.scan.outcome == 'success'
+        run: |
+          aws s3 cp trivy-results-${{ env.release_tag }}.txt s3://my-scan-reports-bucket/scan-reports/trivy-results-${{ env.release_tag }}.txt
+          echo "🔐 Generating pre-signed URL..."
+          S3_URI="s3://my-scan-reports-bucket/scan-reports/trivy-results-${{ env.release_tag }}.txt"
+          PRESIGNED_URL=$(aws s3 presign "$S3_URI" --expires-in 3600)
+          echo "s3_report_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
+        env:
+          AWS_REGION: us-west-2
+
+      - name: Fetch Slack secrets
+        uses: ./.github/actions/fetch-slack-secrets
+        id: slack_secrets
+
+      - name: Notify Slack Scan Report
+        uses: ./.github/actions/slack-scan-notify
+        with:
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+          s3_report_url: ${{ steps.s3-upload.outputs.s3_report_url }}
+    
       - name: Fetch Slack secrets
         uses: ./.github/actions/fetch-slack-secrets
         id: slack_secrets
