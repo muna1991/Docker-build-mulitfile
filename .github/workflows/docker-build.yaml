@@ -229,10 +229,18 @@ jobs:
             if [[ "$STATUS" == "approve" ]]; then
               echo "✅ Approved"
               echo "status=approve" >> "$GITHUB_OUTPUT"
+              aws dynamodb delete-item \
+                --table-name "$TABLE" \
+                --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
+                --region "$AWS_REGION"
               exit 0
             elif [[ "$STATUS" == "reject" ]]; then
               echo "❌ Rejected"
               echo "status=reject" >> "$GITHUB_OUTPUT"
+              aws dynamodb delete-item \
+                --table-name "$TABLE" \
+                --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
+                --region "$AWS_REGION"
               exit 0
             fi
 
