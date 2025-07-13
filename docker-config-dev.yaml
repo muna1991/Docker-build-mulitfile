@@ -1,6 +1,6 @@
 ecr_repo_name: new-relic-repo
-docker_image_tag: v38
+docker_image_tag: v39
 dockerfile_location: ./Dockerfile
-account_name: infdev
+account_name: ssdev
 region: us-west-2
 skip_vulnerability: true
