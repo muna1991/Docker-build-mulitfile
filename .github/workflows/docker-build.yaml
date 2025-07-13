@@ -118,6 +118,9 @@ jobs:
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read   
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -178,6 +181,9 @@ jobs:
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read
     needs: [detect-updates, build, scan]
     outputs:
       status: ${{ steps.get_decision.outputs.status }}
