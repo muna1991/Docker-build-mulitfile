@@ -183,9 +183,9 @@ jobs:
           image_tag: ${{ env.release_tag }}
           s3_report_url: ${{ steps.s3-upload.outputs.s3_report_url }}
     
-      - name: Fetch Slack secrets
-        uses: ./.github/actions/fetch-slack-secrets
-        id: slack_secrets
+      # - name: Fetch Slack secrets
+      #   uses: ./.github/actions/fetch-slack-secrets
+      #   id: slack_secrets
 
       - name: Send Slack Approval Request
         if: steps.scan.outcome == 'success'
