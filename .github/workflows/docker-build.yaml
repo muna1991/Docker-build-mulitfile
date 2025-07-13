@@ -149,12 +149,22 @@ jobs:
           else
             echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
           fi
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
+
+      - name: Fetch Slack secrets
+        uses: ./.github/actions/fetch-slack-secrets
+        id: slack_secrets
+
       - name: Send Slack Approval Request
         if: steps.scan.outcome == 'success'
         uses: ./.github/actions/send-approval-slack
         with:
-          slack_token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
       - name: ⏸ Wait for Slack Approval Window (5 minutes)
@@ -178,13 +188,19 @@ jobs:
         with:
           config_file: ${{ matrix.config_file }}
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
+
       - name: Fetch approval status from DynamoDB
         id: get_decision
         shell: bash
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: us-west-2
           IMAGE_TAG: ${{ env.ecr_repo_name }}
           DECISION_KEY: latest
