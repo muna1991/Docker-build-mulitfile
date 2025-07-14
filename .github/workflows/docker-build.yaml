@@ -141,17 +141,26 @@ jobs:
         run: |
           IMAGE_TAG="$account_number.dkr.ecr.$region.amazonaws.com/$ecr_repo_name:$release_tag"
           echo "🔍 Running Trivy scan on $IMAGE_TAG..."
-          trivy image --format table --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | tee trivy-results-${{ env.release_tag }}.txt
-          VULN_COUNT=$(trivy image --format json --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length')
+
+          # Run Trivy and save output in JSON format for browser-friendliness
+          trivy image --format json \
+                      --ignore-unfixed \
+                      --pkg-types os,library \
+                      --severity HIGH,CRITICAL \
+                      "$IMAGE_TAG" > trivy-results-${{ env.release_tag }}.json
+
+          # Count HIGH/CRITICAL vulns
+          VULN_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' trivy-results-${{ env.release_tag }}.json)
 
           if [[ "${{ env.skip_vulnerability }}" == "true" ]]; then
             echo "⚠️ Skipping vulnerability enforcement as per user input."
           elif [[ "$VULN_COUNT" -gt 0 ]]; then
-            echo "❌ Vulnerabilities found. Failing the job."
+            echo "❌ Vulnerabilities found: $VULN_COUNT. Failing the job."
             exit 1
           else
             echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
           fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -162,13 +171,20 @@ jobs:
         id: s3-upload
         if: steps.scan.outcome == 'success'
         run: |
-          aws s3 cp trivy-results-${{ env.release_tag }}.txt s3://my-scan-reports-bucket/scan-reports/trivy-results-${{ env.release_tag }}.txt
+          FILE_NAME="trivy-results-${{ env.release_tag }}.json"
+          S3_KEY="scan-reports/$FILE_NAME"
+          S3_URI="s3://my-scan-reports-bucket/$S3_KEY"
+
+          echo "📤 Uploading $FILE_NAME to $S3_URI..."
+          aws s3 cp "$FILE_NAME" "$S3_URI"
+
           echo "🔐 Generating pre-signed URL..."
-          S3_URI="s3://my-scan-reports-bucket/scan-reports/trivy-results-${{ env.release_tag }}.txt"
           PRESIGNED_URL=$(aws s3 presign "$S3_URI" --expires-in 3600)
+
           echo "s3_report_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
         env:
           AWS_REGION: us-west-2
+
 
       - name: Fetch Slack secrets
         uses: ./.github/actions/fetch-slack-secrets
