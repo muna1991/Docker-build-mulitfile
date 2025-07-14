@@ -1,0 +1,35 @@
+name: "Fetch Slack Secrets"
+description: "Fetch slack_token and channel_id from AWS Secrets Manager"
+inputs:
+  secret_name:
+    description: "AWS Secrets Manager secret name"
+    required: true
+    default: "slack-notification"
+
+outputs:
+  slack_token:
+    description: "Slack Bot Token"
+    value: ${{ steps.get_secret.outputs.slack_token }}
+  channel_id:
+    description: "Slack Channel ID"
+    value: ${{ steps.get_secret.outputs.channel_id }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: get_secret
+      shell: bash
+      run: |
+        secret=$(aws secretsmanager get-secret-value \
+          --region us-west-2 \
+          --secret-id "${{ inputs.secret_name }}" \
+          --query SecretString \
+          --output text)
+
+        echo "$secret" | jq .
+
+        slack_token=$(echo "$secret" | jq -r '.SLACK_BOT_TOKEN')
+        channel_id=$(echo "$secret" | jq -r '.SLACK_CHANNEL_ID')
+
+        echo "slack_token=$slack_token" >> "$GITHUB_OUTPUT"
+        echo "channel_id=$channel_id" >> "$GITHUB_OUTPUT"

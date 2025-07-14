@@ -1,0 +1,18 @@
+name: Slack Approval Message
+description: Sends Slack Approve/Reject message
+inputs:
+  slack_token:
+    required: true
+    description: "Slack bot token"
+  channel_id:
+    required: true
+    description: "Slack channel ID"
+  image_tag:
+    required: true
+    description: "Docker image tag"
+  repository:
+    required: true
+    description: "please pass the repository name"
+runs:
+  using: "node20"
+  main: "index.js"

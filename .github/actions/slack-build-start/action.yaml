@@ -1,0 +1,20 @@
+name: Slack Build Started Notifier
+description: Sends a Slack message when Docker image build starts
+
+inputs:
+  slack_token:
+    required: true
+    description: "please pass the slack token"
+  channel_id:
+    required: true
+    description: "please pass the channel id"
+  image_tag:
+    required: true
+    description: "please pass the image tag"
+  repository:
+    required: true
+    description: "please pass the repository name"
+
+runs:
+  using: "node20"
+  main: "index.js"

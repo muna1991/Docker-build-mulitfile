@@ -1,0 +1,22 @@
+name: "Slack Scan Notifier"
+description: "Send Slack message when scan starts and after uploading report"
+inputs:
+  slack_token:
+    required: true
+    description: "this is required parameter"
+  channel_id:
+    required: true
+    description: "this is required parameter"
+  repository:
+    required: true
+    description: "this is required parameter"
+  image_tag:
+    required: true
+    description: "this is required parameter"
+  s3_report_url:
+    required: true
+    description: "this is required parameter"
+
+runs:
+  using: "node20"
+  main: "index.js"
