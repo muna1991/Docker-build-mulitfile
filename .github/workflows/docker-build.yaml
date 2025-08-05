@@ -1,5 +1,4 @@
 name: Docker Image Build & Push for PR Updates
-
 on:
   push:
   # pull_request:
