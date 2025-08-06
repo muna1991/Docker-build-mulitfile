@@ -1,6 +1,6 @@
-ecr_repo_name: new-relic-repo
-docker_image_tag: v44
+ecr_repo_name: new-postman-repo
+docker_image_tag: v2
 dockerfile_location: ./Dockerfile
-account_name: dev
+account_name: qa
 region: us-west-2
 skip_vulnerability: false
