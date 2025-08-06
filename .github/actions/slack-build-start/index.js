@@ -18,7 +18,7 @@ const { WebClient } = require('@slack/web-api');
                 type: 'section', fields: [
                     { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
                     { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` },
-                    { type: 'mrkdwn', text: `*🌐 Environment:*\n\`${environment}\`` }  // 👈 Add this
+                    { type: 'mrkdwn', text: `*🌐 Environment:*\n\`${environment}\`` }
                 ]
             },
             { type: 'context', elements: [{ type: 'mrkdwn', text: '🔧 Build in progress...' }] }
