@@ -15,7 +15,10 @@ inputs:
     required: true
     description: "please pass the repository name"
   environment:
-    description: "please pass the repository name"
+    description: "please pass the environment name"
+    required: true
+  region:
+    description: "please pass the region name"
     required: true
 
 runs:

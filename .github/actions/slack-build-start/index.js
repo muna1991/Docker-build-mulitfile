@@ -8,10 +8,11 @@ const { WebClient } = require('@slack/web-api');
     const tag = core.getInput('image_tag');
     const repo = core.getInput('repository');
     const environment = core.getInput('environment');
+    const region = core.getInput('region')
 
     await slack.chat.postMessage({
         channel,
-        text: `🚀 Docker build started for ${repo}:${tag} in ${environment}`,
+        text: `🚀 Docker build started for ${repo}:${tag} in ${environment} ${region}`,
         blocks: [
             {
                 type: 'header',
@@ -21,7 +22,7 @@ const { WebClient } = require('@slack/web-api');
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}`
+                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:*${region}`
                 }
             },
             {
