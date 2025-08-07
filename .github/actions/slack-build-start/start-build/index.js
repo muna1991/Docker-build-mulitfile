@@ -40997,7 +40997,7 @@ const { WebClient } = __nccwpck_require__(9558);
     const tag = core.getInput('image_tag');
     const repo = core.getInput('repository');
     const environment = core.getInput('environment');
-    const region = core.getInput('region')
+    const region = core.getInput('region');
 
     await slack.chat.postMessage({
         channel,
@@ -41011,7 +41011,7 @@ const { WebClient } = __nccwpck_require__(9558);
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:*${region}`
+                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:* ${region}`
                 }
             },
             {
