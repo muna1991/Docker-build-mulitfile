@@ -13,15 +13,24 @@ const { WebClient } = require('@slack/web-api');
         channel,
         text: `🚀 Docker build started for ${repo}:${tag} in ${environment}`,
         blocks: [
-            { type: 'header', text: { type: 'plain_text', text: '🚀 Docker Build Started', emoji: true } },
             {
-                type: 'section', fields: [
-                    { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
-                    { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` },
-                    { type: 'mrkdwn', text: `*🌐 Environment:*\n\`${environment}\`` }
-                ]
+                type: 'header',
+                text: { type: 'plain_text', text: '🚀 Docker Build Started', emoji: true }
             },
-            { type: 'context', elements: [{ type: 'mrkdwn', text: '🔧 Build in progress...' }] }
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}`
+                }
+            },
+            {
+                type: 'context',
+                elements: [
+                    { type: 'mrkdwn', text: '🔧 Build in progress...' }
+                ]
+            }
         ]
     });
 })();
+
