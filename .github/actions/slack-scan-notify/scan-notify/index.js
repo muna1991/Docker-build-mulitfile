@@ -41001,12 +41001,14 @@ const { WebClient } = __nccwpck_require__(9558);
         const channel = core.getInput('channel_id');
         const repo = core.getInput('repository');
         const tag = core.getInput('image_tag');
+        const environment = core.getInput('environment');
+        const region = core.getInput('region');
         const reportUrl = core.getInput('s3_report_url');
 
         // 🔍 Scan Started
         await slack.chat.postMessage({
             channel,
-            text: `🔍 Scan started for ${repo}:${tag}`,
+            text: `🔍 Scan started for ${repo}:${tag} in ${environment} ${region}`,
             blocks: [
                 {
                     type: 'header',
@@ -41014,10 +41016,10 @@ const { WebClient } = __nccwpck_require__(9558);
                 },
                 {
                     type: 'section',
-                    fields: [
-                        { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
-                        { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` }
-                    ]
+                    text: {
+                        type: 'mrkdwn',
+                        text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:* ${region}`
+                    }
                 },
                 {
                     type: 'context',
@@ -41028,10 +41030,10 @@ const { WebClient } = __nccwpck_require__(9558);
             ]
         });
 
-        // ✅ Scan Completed with Report Button
+        // ✅ Scan Completed
         await slack.chat.postMessage({
             channel,
-            text: `✅ Scan completed for ${repo}:${tag}`,
+            text: `✅ Scan completed for ${repo}:${tag} in ${environment} ${region}`,
             blocks: [
                 {
                     type: 'header',
@@ -41039,10 +41041,10 @@ const { WebClient } = __nccwpck_require__(9558);
                 },
                 {
                     type: 'section',
-                    fields: [
-                        { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
-                        { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` }
-                    ]
+                    text: {
+                        type: 'mrkdwn',
+                        text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:* ${region}`
+                    }
                 },
                 {
                     type: 'actions',
