@@ -12,11 +12,11 @@ const { WebClient } = require('@slack/web-api');
 
     await slack.chat.postMessage({
         channel,
-        text: `🚀 Docker build started for ${repo}:${tag} in ${environment} ${region}`,
+        text: `✅ Docker image ${repo}:${tag} is ready for push in ${environment} (${region}).`,
         blocks: [
             {
                 type: 'header',
-                text: { type: 'plain_text', text: '🚀 Docker Build Started', emoji: true }
+                text: { type: 'plain_text', text: '✅ Image Ready for Push', emoji: true }
             },
             {
                 type: 'section',
@@ -26,16 +26,10 @@ const { WebClient } = require('@slack/web-api');
                 }
             },
             {
-                type: 'context',
-                elements: [
-                    { type: 'mrkdwn', text: '🔧 Build in progress...' }
-                ]
-            },
-            {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `Docker image *${repo}* and *${tag}* is ready for push.\nApprove or Reject this deployment`
+                    text: `Docker image *${repo}* and *${tag}* is ready for push.\nApprove or Reject this deployment.`
                 }
             },
             {
@@ -58,3 +52,4 @@ const { WebClient } = require('@slack/web-api');
         ]
     });
 })();
+

@@ -1,5 +1,5 @@
 ecr_repo_name: new-test-repo
-docker_image_tag: v6
+docker_image_tag: v7
 dockerfile_location: ./Dockerfile
 account_name: qa
 region: us-west-2
