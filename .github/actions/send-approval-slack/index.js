@@ -12,11 +12,11 @@ const { WebClient } = require('@slack/web-api');
 
     await slack.chat.postMessage({
         channel,
-        text: `✅ Docker image ${repo}:${tag} is ready for push in ${environment} (${region}).`,
+        text: `Docker image *${repo}* and *${tag}* is ready for production push.`,
         blocks: [
             {
                 type: 'header',
-                text: { type: 'plain_text', text: '✅ Image Ready for Push', emoji: true }
+                text: { type: 'plain_text', text: '✅ Scan Completed', emoji: true }
             },
             {
                 type: 'section',
@@ -26,10 +26,16 @@ const { WebClient } = require('@slack/web-api');
                 }
             },
             {
+                type: 'context',
+                elements: [
+                    { type: 'mrkdwn', text: 'Review the scan report for details.' }
+                ]
+            },
+            {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `Docker image *${repo}* and *${tag}* is ready for push.\nApprove or Reject this deployment.`
+                    text: `Docker image *${repo}* and *${tag}* is ready for production push.\nApprove or Reject this deployment`
                 }
             },
             {
@@ -39,17 +45,18 @@ const { WebClient } = require('@slack/web-api');
                         type: 'button',
                         text: { type: 'plain_text', text: 'Approve ✅', emoji: true },
                         style: 'primary',
-                        value: 'approve'
+                        value: `approve|${environment}|${tag}|${repo}`
                     },
                     {
                         type: 'button',
                         text: { type: 'plain_text', text: 'Reject ❌', emoji: true },
                         style: 'danger',
-                        value: 'reject'
+                        value: `reject|${environment}|${tag}|${repo}`
                     }
                 ]
             }
         ]
     });
 })();
+
 

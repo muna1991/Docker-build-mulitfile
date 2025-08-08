@@ -257,7 +257,7 @@ jobs:
   #         # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   #         # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   #         # AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-  #         AWS_REGION: us-west-2
+  #         AWS_REGION: ${{env.region}}
   #         IMAGE_TAG: ${{ env.ecr_repo_name }}
   #         DECISION_KEY: latest
   #         TABLE: SlackApprovals
