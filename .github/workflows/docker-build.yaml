@@ -203,6 +203,8 @@ jobs:
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
           s3_report_url: ${{ steps.s3-upload.outputs.s3_report_url }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
     
       # - name: Fetch Slack secrets
       #   uses: ./.github/actions/fetch-slack-secrets
