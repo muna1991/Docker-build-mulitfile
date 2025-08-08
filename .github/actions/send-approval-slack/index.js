@@ -39,13 +39,13 @@ const { WebClient } = require('@slack/web-api');
                         type: 'button',
                         text: { type: 'plain_text', text: 'Approve ✅', emoji: true },
                         style: 'primary',
-                        value: 'approve'
+                        value: `approve|${repo}|${tag}|${environment}`
                     },
                     {
                         type: 'button',
                         text: { type: 'plain_text', text: 'Reject ❌', emoji: true },
                         style: 'danger',
-                        value: 'reject'
+                        value: `reject|${repo}|${tag}|${environment}`
                     }
                 ]
             }
