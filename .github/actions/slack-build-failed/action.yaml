@@ -1,0 +1,26 @@
+name: Slack Build failed Notifier
+description: Sends a Slack message when Docker image build failed
+
+inputs:
+  slack_token:
+    required: true
+    description: "please pass the slack token"
+  channel_id:
+    required: true
+    description: "please pass the channel id"
+  image_tag:
+    required: true
+    description: "please pass the image tag"
+  repository:
+    required: true
+    description: "please pass the repository name"
+  environment:
+    description: "please pass the environment name"
+    required: true
+  region:
+    description: "please pass the region name"
+    required: true
+
+runs:
+  using: "node20"
+  main: "index.js"
