@@ -1,36 +1,57 @@
 const core = require('@actions/core');
 const { WebClient } = require('@slack/web-api');
 
-const token = core.getInput('slack_token');
-const channel = core.getInput('channel_id');
-const imageTag = core.getInput('image_tag');
-const repo = core.getInput('repository');
-
-const slack = new WebClient(token);
-
 (async () => {
+    const token = core.getInput('slack_token');
+    const slack = new WebClient(token);
+    const channel = core.getInput('channel_id');
+    const tag = core.getInput('image_tag');
+    const repo = core.getInput('repository');
+    const environment = core.getInput('environment');
+    const region = core.getInput('region');
+
     await slack.chat.postMessage({
-        channel: channel,
-        text: `Docker image *${repo}* and *${imageTag}* is ready for production push.`,
-        attachments: [
+        channel,
+        text: `🚀 Docker build started for ${repo}:${tag} in ${environment} ${region}`,
+        blocks: [
             {
-                text: 'Approve or Reject this deployment',
-                fallback: 'Unable to approve',
-                callback_id: 'approval_action',
-                actions: [
+                type: 'header',
+                text: { type: 'plain_text', text: '🚀 Docker Build Started', emoji: true }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*Repository:* ${repo}\n*Tag:* ${tag}\n*Environment:* ${environment}\n*Region:* ${region}`
+                }
+            },
+            {
+                type: 'context',
+                elements: [
+                    { type: 'mrkdwn', text: '🔧 Build in progress...' }
+                ]
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `Docker image *${repo}* and *${tag}* is ready for push.\nApprove or Reject this deployment`
+                }
+            },
+            {
+                type: 'actions',
+                elements: [
                     {
-                        name: 'approve',
-                        text: 'Approve ✅',
                         type: 'button',
-                        value: 'approve',
-                        style: 'primary'
+                        text: { type: 'plain_text', text: 'Approve ✅', emoji: true },
+                        style: 'primary',
+                        value: 'approve'
                     },
                     {
-                        name: 'reject',
-                        text: 'Reject ❌',
                         type: 'button',
-                        value: 'reject',
-                        style: 'danger'
+                        text: { type: 'plain_text', text: 'Reject ❌', emoji: true },
+                        style: 'danger',
+                        value: 'reject'
                     }
                 ]
             }

@@ -218,6 +218,8 @@ jobs:
           channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
       - name: ⏸ Wait for Slack Approval Window (5 minutes)
         run: |
           echo "⏳ Waiting for 5 minutes before checking approval..."
