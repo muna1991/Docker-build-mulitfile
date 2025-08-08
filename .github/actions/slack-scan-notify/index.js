@@ -1,37 +1,71 @@
-import core from "@actions/core";
-import { WebClient } from "@slack/web-api";
+const core = require('@actions/core');
+const { WebClient } = require('@slack/web-api');
 
-const run = async () => {
+(async () => {
     try {
-        const slack_token = core.getInput("slack_token");
-        const channel_id = core.getInput("channel_id");
-        const repository = core.getInput("repository");
-        const image_tag = core.getInput("image_tag");
-        const s3_report_url = core.getInput("s3_report_url");
+        const token = core.getInput('slack_token');
+        const slack = new WebClient(token);
+        const channel = core.getInput('channel_id');
+        const repo = core.getInput('repository');
+        const tag = core.getInput('image_tag');
+        const reportUrl = core.getInput('s3_report_url');
 
-        const slack = new WebClient(slack_token);
-
-        // Notify scan started
+        // 🔍 Scan Started
         await slack.chat.postMessage({
-            channel: channel_id,
-            text: `🔍 *Scan started* for \`${repository}:${image_tag}\``
+            channel,
+            text: `🔍 Scan started for ${repo}:${tag}`,
+            blocks: [
+                {
+                    type: 'header',
+                    text: { type: 'plain_text', text: '🔍 Scan Started', emoji: true }
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
+                        { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` }
+                    ]
+                },
+                {
+                    type: 'context',
+                    elements: [
+                        { type: 'mrkdwn', text: '🛡️ Security scan in progress...' }
+                    ]
+                }
+            ]
         });
 
-        // Notify scan completed with report button
+        // ✅ Scan Completed with Report Button
         await slack.chat.postMessage({
-            channel: channel_id,
-            text: `✅ *Scan completed* for \`${repository}:${image_tag}\``,
-            attachments: [
+            channel,
+            text: `✅ Scan completed for ${repo}:${tag}`,
+            blocks: [
                 {
-                    text: "View full scan report",
-                    fallback: "View scan report",
-                    actions: [
+                    type: 'header',
+                    text: { type: 'plain_text', text: '✅ Scan Completed', emoji: true }
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*📦 Repository:*\n\`${repo}\`` },
+                        { type: 'mrkdwn', text: `*🏷️ Tag:*\n\`${tag}\`` }
+                    ]
+                },
+                {
+                    type: 'actions',
+                    elements: [
                         {
-                            type: "button",
-                            text: "📄 View Scan Report",
-                            url: s3_report_url,
-                            style: "primary"
+                            type: 'button',
+                            text: { type: 'plain_text', text: '📄 View Scan Report', emoji: true },
+                            url: reportUrl,
+                            style: 'primary'
                         }
+                    ]
+                },
+                {
+                    type: 'context',
+                    elements: [
+                        { type: 'mrkdwn', text: '📊 Review the scan report for details.' }
                     ]
                 }
             ]
@@ -39,6 +73,4 @@ const run = async () => {
     } catch (err) {
         core.setFailed(`Slack notification failed: ${err.message}`);
     }
-};
-
-run();
+})();

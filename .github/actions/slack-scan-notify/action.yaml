@@ -16,6 +16,12 @@ inputs:
   s3_report_url:
     required: true
     description: "this is required parameter"
+  environment:
+    description: "please pass the environment name"
+    required: true
+  region:
+    description: "please pass the region name"
+    required: true
 
 runs:
   using: "node20"
