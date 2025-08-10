@@ -7,19 +7,18 @@ inputs:
   channel_id:
     required: true
     description: "Slack channel ID"
+  repository:
+    required: true
+    description: "Repository name"
+  environment:
+    required: true
+    description: "Environment name"
+  region:
+    required: true
+    description: "Region name"
   image_tag:
     required: true
     description: "Docker image tag"
-  repository:
-    required: true
-    description: "please pass the repository name"
-  environment:
-    description: "please pass the environment name"
-    required: true
-  region:
-    description: "please pass the region name"
-    required: true
-
 runs:
   using: "node20"
   main: "index.js"
