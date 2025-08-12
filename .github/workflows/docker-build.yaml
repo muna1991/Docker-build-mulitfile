@@ -225,23 +225,109 @@ jobs:
           echo "⏳ Waiting for 5 minutes before checking approval..."
           sleep 30  # Sleep for 300 seconds = 5 minutes
 
-  wait_for_approval:
+  # wait_for_approval:
+  #   runs-on: self-hosted
+  #   strategy:
+  #     matrix:
+  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   needs: [detect-updates, build, scan]
+  #   outputs:
+  #     status: ${{ steps.get_decision.outputs.status }}
+  #   steps:
+  #     - name: Extract Variables from Config File
+  #       id: extract-vars
+  #       uses: ./.github/actions/extract-config-file
+  #       with:
+  #         config_file: ${{ matrix.config_file }}
+
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+  #         aws-region: us-west-2
+
+  #     - name: Fetch approval record from DynamoDB
+  #       id: get_decision
+  #       shell: bash
+  #       env:
+  #         TABLE: SlackApprovalNotification
+  #         AWS_REGION: ${{env.region}}
+  #         REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
+  #         ENVIRONMENT: ${{ env.account_name}}               # Set dynamically as needed
+  #       run: |
+  #         # Fetch item from DynamoDB
+  #         result=$(aws dynamodb get-item \
+  #           --table-name "$TABLE" \
+  #           --key "{\"repository\": {\"S\": \"$REPOSITORY\"}, \"environment\": {\"S\": \"$ENVIRONMENT\"}}" \
+  #           --region "$AWS_REGION" \
+  #           --output json 2>/dev/null || echo "{}")
+
+  #         echo "Raw DynamoDB result: $result"
+
+  #         # Extract decision field (status)
+  #         STATUS=$(echo "$result" | jq -r '.Item.decision.S // "none"')
+  #         echo "Retrieved decision: $STATUS"
+  #         echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+  #         # Extract environment from DynamoDB item for condition check
+  #         DB_ENVIRONMENT=$(echo "$result" | jq -r '.Item.environment.S // ""')
+  #         echo "Retrieved environment: $DB_ENVIRONMENT"
+
+  #         # Conditional logic: compare fetched environment with input and check status
+  #         if [[ "$DB_ENVIRONMENT" == "$ENVIRONMENT" && "$STATUS" == "approve" ]]; then
+  #           echo "✅ Approval confirmed"
+  #           echo "status=approve" >> $GITHUB_OUTPUT
+  #           exit 0
+  #         else
+  #           echo "❌ Not approved or environment mismatch"
+  #           echo "status=reject" >> $GITHUB_OUTPUT
+  #           exit 1
+  #         fi
+
+  # push:
+  #   needs: wait_for_approval
+  #   if: needs.wait_for_approval.outputs.status == 'approve'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Push Docker Image
+  #       run: echo "✅ Image approved. Pushing to ECR..."
+
+  # reject_handler:
+  #   needs: wait_for_approval
+  #   if: needs.wait_for_approval.outputs.status == 'reject'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Stop Deployment
+  #       run: echo "❌ Deployment rejected by Slack."
+
+  push:
+    needs: [detect-updates, build, scan]
     runs-on: self-hosted
+    #  environment:
+    #    name: Release
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
     permissions:
       id-token: write
       contents: read
-    needs: [detect-updates, build, scan]
-    outputs:
-      status: ${{ steps.get_decision.outputs.status }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Extract Variables from Config File
         id: extract-vars
         uses: ./.github/actions/extract-config-file
         with:
           config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -249,85 +335,25 @@ jobs:
           role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
           aws-region: us-west-2
 
-      - name: Fetch approval record from DynamoDB
-        id: get_decision
-        shell: bash
-        env:
+      - name: Fetch Record from Dynomadb.
+        id: fecth-db-record
+        uses: ./.github/actions/fetch-approval
+        with:
           TABLE: SlackApprovalNotification
           AWS_REGION: ${{env.region}}
           REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
-          ENVIRONMENT: ${{ env.account_name}}               # Set dynamically as needed
+          ENVIRONMENT: ${{ env.account_name}}
+      - name: push job
         run: |
-          # Fetch item from DynamoDB
-          result=$(aws dynamodb get-item \
-            --table-name "$TABLE" \
-            --key "{\"repository\": {\"S\": \"$REPOSITORY\"}, \"environment\": {\"S\": \"$ENVIRONMENT\"}}" \
-            --region "$AWS_REGION" \
-            --output json 2>/dev/null || echo "{}")
-
-          echo "Raw DynamoDB result: $result"
-
-          # Extract decision field (status)
-          STATUS=$(echo "$result" | jq -r '.Item.decision.S // "none"')
-          echo "Retrieved decision: $STATUS"
-          echo "status=$STATUS" >> $GITHUB_OUTPUT
-
-          # Extract environment from DynamoDB item for condition check
-          DB_ENVIRONMENT=$(echo "$result" | jq -r '.Item.environment.S // ""')
-          echo "Retrieved environment: $DB_ENVIRONMENT"
-
-          # Conditional logic: compare fetched environment with input and check status
-          if [[ "$DB_ENVIRONMENT" == "$ENVIRONMENT" && "$STATUS" == "approve" ]]; then
-            echo "✅ Approval confirmed"
-            echo "status=approve" >> $GITHUB_OUTPUT
-            exit 0
+          status=${{ steps.fecth-db-record.outputs.status }}
+          environment=${{ steps.fecth-db-record.outputs.environment }}
+          if [[ "${{ env.account_name}}" == "$environment" && "$status" == "approve" ]]; then
+          echo "✅ Approval confirmed"
+          echo "Docker image is pushing to ecr!!!!sucesfully"
           else
             echo "❌ Not approved or environment mismatch"
-            echo "status=reject" >> $GITHUB_OUTPUT
-            exit 1
+            echo "Docker image has rejected by approver"
           fi
-
-  push:
-    needs: wait_for_approval
-    if: needs.wait_for_approval.outputs.status == 'approve'
-    runs-on: self-hosted
-    steps:
-      - name: Push Docker Image
-        run: echo "✅ Image approved. Pushing to ECR..."
-
-  reject_handler:
-    needs: wait_for_approval
-    if: needs.wait_for_approval.outputs.status == 'reject'
-    runs-on: self-hosted
-    steps:
-      - name: Stop Deployment
-        run: echo "❌ Deployment rejected by Slack."
-
-  # push:
-  #   needs: [detect-updates, build, scan]
-  #   runs-on: self-hosted
-   #   environment:
-   #     name: Release
-  #   strategy:
-  #     matrix:
-  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Extract Variables from Config File
-  #       id: extract-vars
-  #       uses: ./.github/actions/extract-config-file
-  #       with:
-  #         config_file: ${{ matrix.config_file }}
-
-  #     - name: Extract AWS Account Number
-  #       uses: ./.github/actions/extract-account-number
-  #       with:
-  #         acc_name: ${{ steps.extract-vars.outputs.acc_name }}
 
   # #     - name: Role Assume
   # #       uses: aws-actions/configure-aws-credentials@v4

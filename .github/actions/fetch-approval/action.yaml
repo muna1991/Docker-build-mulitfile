@@ -1,0 +1,47 @@
+name: "Fetch DynamoDB Approval"
+description: "Fetch approval record from DynamoDB and returns status"
+
+inputs:
+  TABLE:
+    description: "DynamoDB table name"
+    required: true
+  AWS_REGION:
+    description: "AWS region"
+    required: true
+  REPOSITORY:
+    description: "Repository name (partition key)"
+    required: true
+  ENVIRONMENT:
+    description: "Environment name (sort key)"
+    required: true
+
+outputs:
+  status:
+    description: "Approval status (approve or reject)"
+    value: ${{ steps.fetch-record.outputs.status }}
+  environemnt:
+    description: "This is environment details"
+    value: ${{ steps.fetch-record.outputs.environemnt }}
+runs:
+  using: "composite"
+  steps:
+    - name: Fetch approval record from DynamoDB
+      id: fetch-record
+      shell: bash
+      run: |
+        result=$(aws dynamodb get-item \
+          --table-name "${{ inputs.TABLE }}" \
+          --key "{\"repository\": {\"S\": \"${{ inputs.REPOSITORY }}\"}, \"environment\": {\"S\": \"${{ inputs.ENVIRONMENT }}\"}}" \
+          --region "${{ inputs.AWS_REGION }}" \
+          --output json 2>/dev/null || echo "{}")
+
+        echo "Raw DynamoDB result: $result"
+
+        STATUS=$(echo "$result" | jq -r '.Item.decision.S // "none"')
+        DB_ENVIRONMENT=$(echo "$result" | jq -r '.Item.environment.S // ""')
+
+        echo "Retrieved decision: $STATUS"
+        echo "Retrieved environment: $DB_ENVIRONMENT"
+
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        echo "environemnt=$DB_ENVIRONMENT" >> "$GITHUB_OUTPUT"

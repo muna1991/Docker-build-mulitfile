@@ -9,7 +9,7 @@ inputs:
 outputs:
   account_number:
     value: ${{ steps.extract.outputs.account_number }}
-
+    description: "This is account not has passed to output parameter"
 runs:
   using: "composite"
   steps:
