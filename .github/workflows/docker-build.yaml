@@ -223,100 +223,85 @@ jobs:
       - name: ⏸ Wait for Slack Approval Window (5 minutes)
         run: |
           echo "⏳ Waiting for 5 minutes before checking approval..."
-          sleep 60  # Sleep for 300 seconds = 5 minutes
+          sleep 30  # Sleep for 300 seconds = 5 minutes
 
+  wait_for_approval:
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read
+    needs: [detect-updates, build, scan]
+    outputs:
+      status: ${{ steps.get_decision.outputs.status }}
+    steps:
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
 
-  # wait_for_approval:
-  #   runs-on: self-hosted
-  #   strategy:
-  #     matrix:
-  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   needs: [detect-updates, build, scan]
-  #   outputs:
-  #     status: ${{ steps.get_decision.outputs.status }}
-  #   steps:
-  #     - name: Extract Variables from Config File
-  #       id: extract-vars
-  #       uses: ./.github/actions/extract-config-file
-  #       with:
-  #         config_file: ${{ matrix.config_file }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
 
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
-  #         aws-region: us-west-2
+      - name: Fetch approval record from DynamoDB
+        id: get_decision
+        shell: bash
+        env:
+          TABLE: SlackApprovalNotification
+          AWS_REGION: ${{env.region}}
+          REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
+          ENVIRONMENT: ${{ env.account_name}}               # Set dynamically as needed
+        run: |
+          # Fetch item from DynamoDB
+          result=$(aws dynamodb get-item \
+            --table-name "$TABLE" \
+            --key "{\"repository\": {\"S\": \"$REPOSITORY\"}, \"environment\": {\"S\": \"$ENVIRONMENT\"}}" \
+            --region "$AWS_REGION" \
+            --output json 2>/dev/null || echo "{}")
 
-  #     - name: Fetch approval status from DynamoDB
-  #       id: get_decision
-  #       shell: bash
-  #       env:
-  #         # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         # AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-  #         AWS_REGION: ${{env.region}}
-  #         IMAGE_TAG: ${{ env.ecr_repo_name }}
-  #         DECISION_KEY: latest
-  #         TABLE: SlackApprovals
-  #       run: |
-  #         for i in {1..30}; do
-  #           echo "🔁 Poll attempt #$i..."
+          echo "Raw DynamoDB result: $result"
 
-  #           result=$(aws dynamodb get-item \
-  #             --table-name "$TABLE" \
-  #             --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
-  #             --region "$AWS_REGION" \
-  #             --output json 2>/dev/null || echo "{}")
+          # Extract decision field (status)
+          STATUS=$(echo "$result" | jq -r '.Item.decision.S // "none"')
+          echo "Retrieved decision: $STATUS"
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
 
-  #           echo "🔍 Raw result: $result"
+          # Extract environment from DynamoDB item for condition check
+          DB_ENVIRONMENT=$(echo "$result" | jq -r '.Item.environment.S // ""')
+          echo "Retrieved environment: $DB_ENVIRONMENT"
 
-  #           STATUS=$(echo "$result" | jq -r '.Item.status.S // "none"')
-  #           echo "📦 Retrieved status: $STATUS"
+          # Conditional logic: compare fetched environment with input and check status
+          if [[ "$DB_ENVIRONMENT" == "$ENVIRONMENT" && "$STATUS" == "approve" ]]; then
+            echo "✅ Approval confirmed"
+            echo "status=approve" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "❌ Not approved or environment mismatch"
+            echo "status=reject" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
-  #           if [[ "$STATUS" == "approve" ]]; then
-  #             echo "✅ Approved"
-  #             echo "status=approve" >> "$GITHUB_OUTPUT"
-  #             aws dynamodb delete-item \
-  #               --table-name "$TABLE" \
-  #               --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
-  #               --region "$AWS_REGION"
-  #             exit 0
-  #           elif [[ "$STATUS" == "reject" ]]; then
-  #             echo "❌ Rejected"
-  #             echo "status=reject" >> "$GITHUB_OUTPUT"
-  #             aws dynamodb delete-item \
-  #               --table-name "$TABLE" \
-  #               --key "{\"image_tag\": {\"S\": \"$IMAGE_TAG\"}, \"decision\": {\"S\": \"$DECISION_KEY\"}}" \
-  #               --region "$AWS_REGION"
-  #             exit 0
-  #           fi
+  push:
+    needs: wait_for_approval
+    if: needs.wait_for_approval.outputs.status == 'approve'
+    runs-on: self-hosted
+    steps:
+      - name: Push Docker Image
+        run: echo "✅ Image approved. Pushing to ECR..."
 
-  #           sleep 10
-  #         done
-
-  #         echo "⏰ Timeout waiting for approval in DynamoDB"
-  #         echo "status=timeout" >> "$GITHUB_OUTPUT"
-  #         exit 1
-
-
-  # push:
-  #   needs: wait_for_approval
-  #   if: needs.wait_for_approval.outputs.status == 'approve'
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Push Docker Image
-  #       run: echo "✅ Image approved. Pushing to ECR..."
-
-  # reject_handler:
-  #   needs: wait_for_approval
-  #   if: needs.wait_for_approval.outputs.status == 'reject'
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Stop Deployment
-  #       run: echo "❌ Deployment rejected by Slack."
+  reject_handler:
+    needs: wait_for_approval
+    if: needs.wait_for_approval.outputs.status == 'reject'
+    runs-on: self-hosted
+    steps:
+      - name: Stop Deployment
+        run: echo "❌ Deployment rejected by Slack."
 
   # push:
   #   needs: [detect-updates, build, scan]
