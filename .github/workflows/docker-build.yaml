@@ -342,12 +342,14 @@ jobs:
           TABLE: SlackApprovalNotification
           AWS_REGION: ${{env.region}}
           REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
-          ENVIRONMENT: ${{ env.account_name}}
+          ENVIRONMENT: ${{ env.account_name }}
       - name: push job
         run: |
           status=${{ steps.fecth-db-record.outputs.status }}
           environment=${{ steps.fecth-db-record.outputs.environment }}
-          if [[ "${{ env.account_name}}" == "$environment" && "$status" == "approve" ]]; then
+          echo $environment
+          echo $status
+          if [[ "${{ env.account_name }}" == "$environment" && "$status" == "approve" ]]; then
           echo "✅ Approval confirmed"
           echo "Docker image is pushing to ecr!!!!sucesfully"
           else
