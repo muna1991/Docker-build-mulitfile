@@ -19,7 +19,7 @@ outputs:
   status:
     description: "Approval status (approve or reject)"
     value: ${{ steps.fetch-record.outputs.status }}
-  environemnt:
+  environment:
     description: "This is environment details"
     value: ${{ steps.fetch-record.outputs.environemnt }}
 runs:
