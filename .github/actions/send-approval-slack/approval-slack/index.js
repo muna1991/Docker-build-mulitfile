@@ -41005,62 +41005,32 @@ async function run() {
 
         const slack = new WebClient(token);
 
-        // Encode button values as decision:repository:environment:region:image_tag
+        // Button values encode all data: decision:repository:environment:region:image_tag
         const approveValue = `approve:${repository}:${environment}:${region}:${imageTag}`;
         const rejectValue = `reject:${repository}:${environment}:${region}:${imageTag}`;
 
         await slack.chat.postMessage({
-            channel,
-            text: `Docker image *${imageTag}* is ready for push approval.`,
-            blocks: [
+            channel: channel,
+            text: `Docker image *${imageTag}* is ready for push.`,
+            attachments: [
                 {
-                    type: 'header',
-                    text: {
-                        type: 'plain_text',
-                        text: '🚦 Deployment Approval Required',
-                        emoji: true
-                    }
-                },
-                {
-                    type: 'section',
-                    text: {
-                        type: 'mrkdwn',
-                        text: `*Repository:* ${repository}\n*Tag:* ${imageTag}\n*Environment:* ${environment}\n*Region:* ${region}`
-                    }
-                },
-                {
-                    type: 'actions',
-                    elements: [
+                    text: 'Approve or Reject this deployment',
+                    fallback: 'Unable to approve/reject',
+                    callback_id: 'approval_action',
+                    actions: [
                         {
+                            name: 'approve',
+                            text: 'Approve ✅',
                             type: 'button',
-                            text: {
-                                type: 'plain_text',
-                                text: 'Approve ✅',
-                                emoji: true
-                            },
-                            style: 'primary',
                             value: approveValue,
-                            action_id: 'approve_button'  // must be unique
+                            style: 'primary'
                         },
                         {
+                            name: 'reject',
+                            text: 'Reject ❌',
                             type: 'button',
-                            text: {
-                                type: 'plain_text',
-                                text: 'Reject ❌',
-                                emoji: true
-                            },
-                            style: 'danger',
                             value: rejectValue,
-                            action_id: 'reject_button'   // must be unique
-                        }
-                    ]
-                },
-                {
-                    type: 'context',
-                    elements: [
-                        {
-                            type: 'mrkdwn',
-                            text: 'Please approve or reject this deployment to proceed.'
+                            style: 'danger'
                         }
                     ]
                 }
@@ -41069,12 +41039,11 @@ async function run() {
 
         console.log('Slack approval message sent successfully');
     } catch (error) {
-        core.setFailed(`Error sending Slack approval message: ${error.message}`);
+        core.setFailed(`Error sending Slack message: ${error.message}`);
     }
 }
 
 run();
-
 module.exports = __webpack_exports__;
 /******/ })()
 ;
