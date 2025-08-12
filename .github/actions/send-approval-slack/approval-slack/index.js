@@ -41005,7 +41005,7 @@ async function run() {
 
         const slack = new WebClient(token);
 
-        // Button value encoding: decision:repository:environment:region:image_tag
+        // Encode button values as decision:repository:environment:region:image_tag
         const approveValue = `approve:${repository}:${environment}:${region}:${imageTag}`;
         const rejectValue = `reject:${repository}:${environment}:${region}:${imageTag}`;
 
@@ -41040,7 +41040,7 @@ async function run() {
                             },
                             style: 'primary',
                             value: approveValue,
-                            action_id: 'approve_action'
+                            action_id: 'approve_button'  // must be unique
                         },
                         {
                             type: 'button',
@@ -41051,7 +41051,7 @@ async function run() {
                             },
                             style: 'danger',
                             value: rejectValue,
-                            action_id: 'reject_action'
+                            action_id: 'reject_button'   // must be unique
                         }
                     ]
                 },
@@ -41060,7 +41060,7 @@ async function run() {
                     elements: [
                         {
                             type: 'mrkdwn',
-                            text: 'Please approve or reject to proceed with the deployment.'
+                            text: 'Please approve or reject this deployment to proceed.'
                         }
                     ]
                 }
