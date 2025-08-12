@@ -41011,7 +41011,7 @@ async function run() {
 
         await slack.chat.postMessage({
             channel: channel,
-            text: `Docker image *${imageTag}* is ready for push.`,
+            text: `Docker image *${repository}*:*${imageTag}* is ready for push to *${environment}*`,
             attachments: [
                 {
                     text: 'Approve or Reject this deployment',
