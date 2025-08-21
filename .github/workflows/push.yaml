@@ -20,11 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to ECR
-        run: aws ecr get-login-password --region ${{ github.event.inputs.region }} | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com
+    #   - name: Login to ECR
+    #     run: aws ecr get-login-password --region ${{ github.event.inputs.region }} | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com
 
       - name: Push Docker Image
         run: |
-          docker pull ${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
-          docker tag ${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }} <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com/${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
-          docker push <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com/${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
+          echo "docker image is reday for push ${{ github.event.inputs.region }}, ${{ github.event.inputs.repository }}, ${{ github.event.inputs.image_tag }}, ${{github.event.inputs.environment}}"
