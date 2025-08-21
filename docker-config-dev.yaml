@@ -1,5 +1,6 @@
 ecr_repo_name: new-relic-repo
-docker_image_tag: v2
+docker_image_tag: v105
 dockerfile_location: ./Dockerfile
-account_name: uipdev
+account_name: ssdev
 region: us-west-2
+skip_vulnerability: false

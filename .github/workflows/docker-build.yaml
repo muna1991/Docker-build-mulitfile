@@ -1,10 +1,12 @@
 name: Docker Image Build & Push for PR Updates
-
 on:
   push:
+  # pull_request:
+  #   types: [opened, synchronize, reopened, edited]
+    branches:
+      - feature/test-automation
     paths:
       - "docker-config-*.yaml"
-
 jobs:
   detect-updates:
     runs-on: self-hosted
@@ -41,7 +43,7 @@ jobs:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
     permissions:
       id-token: write
-      contents: read    
+      contents: read  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,11 +65,57 @@ jobs:
             echo "❌ Dockerfile not found at $dockerfile_location. Exiting."
             exit 1
           fi
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
 
+      - name: Fetch Slack secrets
+        uses: ./.github/actions/fetch-slack-secrets
+        id: slack_secrets
+
+      - name: Notify Build Started
+        uses: ./.github/actions/slack-build-start
+        with:
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
+          
       - name: Build Docker image
         id: docker-build
+        continue-on-error: true
         run: |
           docker build --no-cache . -f ${{ env.dockerfile_location }} -t ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+          
+      - name: Notify Build completed
+        if: steps.docker-build.outcome == 'success'
+        uses: ./.github/actions/slack-build-complete
+        with:
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
+
+      - name: Notify Build Failed
+        if: steps.docker-build.outcome == 'failure'
+        uses: ./.github/actions/slack-build-failed
+        with:
+            slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+            channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+            repository: ${{ env.ecr_repo_name }}
+            image_tag: ${{ env.release_tag }}
+            environment: ${{ env.account_name}}
+            region: ${{env.region}}
+
+      - name: Force Fail After Notification
+        if: steps.docker-build.outcome == 'failure'
+        run: exit 1
 
   scan:
     needs: [detect-updates, build]
@@ -75,6 +123,9 @@ jobs:
     strategy:
       matrix:
         config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read   
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -91,61 +142,238 @@ jobs:
           acc_name: ${{ steps.extract-vars.outputs.acc_name }}
 
       - name: Run Trivy Vulnerability Scan
+        id: scan
         run: |
           IMAGE_TAG="$account_number.dkr.ecr.$region.amazonaws.com/$ecr_repo_name:$release_tag"
           echo "🔍 Running Trivy scan on $IMAGE_TAG..."
-          trivy image --format table --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | tee trivy-results-${{ env.release_tag }}.txt
-          VULN_COUNT=$(trivy image --format json --ignore-unfixed --pkg-types os,library --severity HIGH,CRITICAL "$IMAGE_TAG" | jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length')
+
+          # Run Trivy and save output in JSON format for browser-friendliness
+          trivy image --format json \
+                      --ignore-unfixed \
+                      --pkg-types os,library \
+                      --severity HIGH,CRITICAL \
+                      "$IMAGE_TAG" > trivy-results-${{ env.release_tag }}.json
+
+          # Count HIGH/CRITICAL vulns
+          VULN_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' trivy-results-${{ env.release_tag }}.json)
 
           if [[ "${{ env.skip_vulnerability }}" == "true" ]]; then
             echo "⚠️ Skipping vulnerability enforcement as per user input."
           elif [[ "$VULN_COUNT" -gt 0 ]]; then
-            echo "❌ Vulnerabilities found. Failing the job."
+            echo "❌ Vulnerabilities found: $VULN_COUNT. Failing the job."
             exit 1
           else
             echo "✅ No HIGH/CRITICAL vulnerabilities found. Proceeding."
           fi
 
-  # push:
-  #   needs: [detect-updates, build, scan]
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
+
+      - name: Upload Trivy Report to S3
+        id: s3-upload
+        if: steps.scan.outcome == 'success'
+        run: |
+          FILE_NAME="trivy-results-${{ env.release_tag }}.json"
+          S3_KEY="scan-reports/$FILE_NAME"
+          S3_URI="s3://my-scan-reports-bucket/$S3_KEY"
+
+          echo "📤 Uploading $FILE_NAME to $S3_URI..."
+          aws s3 cp "$FILE_NAME" "$S3_URI"
+
+          echo "🔐 Generating pre-signed URL..."
+          PRESIGNED_URL=$(aws s3 presign "$S3_URI" --expires-in 3600)
+
+          echo "s3_report_url=$PRESIGNED_URL" >> $GITHUB_OUTPUT
+        env:
+          AWS_REGION: us-west-2
+
+
+      - name: Fetch Slack secrets
+        uses: ./.github/actions/fetch-slack-secrets
+        id: slack_secrets
+
+      - name: Notify Slack Scan Report
+        uses: ./.github/actions/slack-scan-notify
+        with:
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+          s3_report_url: ${{ steps.s3-upload.outputs.s3_report_url }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
+    
+      # - name: Fetch Slack secrets
+      #   uses: ./.github/actions/fetch-slack-secrets
+      #   id: slack_secrets
+
+      - name: Send Slack Approval Request
+        if: steps.scan.outcome == 'success'
+        uses: ./.github/actions/send-approval-slack
+        with:
+          slack_token: ${{ steps.slack_secrets.outputs.slack_token }}
+          channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
+          repository: ${{ env.ecr_repo_name }}
+          image_tag: ${{ env.release_tag }}
+          environment: ${{ env.account_name}}
+          region: ${{env.region}}
+      - name: ⏸ Wait for Slack Approval Window (5 minutes)
+        run: |
+          echo "⏳ Waiting for 5 minutes before checking approval..."
+          sleep 30  # Sleep for 300 seconds = 5 minutes
+
+  # wait_for_approval:
   #   runs-on: self-hosted
-  #   environment:
-  #     name: Release
   #   strategy:
   #     matrix:
   #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
   #   permissions:
   #     id-token: write
   #     contents: read
+  #   needs: [detect-updates, build, scan]
+  #   outputs:
+  #     status: ${{ steps.get_decision.outputs.status }}
   #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
   #     - name: Extract Variables from Config File
   #       id: extract-vars
   #       uses: ./.github/actions/extract-config-file
   #       with:
   #         config_file: ${{ matrix.config_file }}
 
-  #     - name: Extract AWS Account Number
-  #       uses: ./.github/actions/extract-account-number
-  #       with:
-  #         acc_name: ${{ steps.extract-vars.outputs.acc_name }}
-
-  #     - name: Role Assume
+  #     - name: Configure AWS Credentials
   #       uses: aws-actions/configure-aws-credentials@v4
   #       with:
-  #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
-  #         aws-region: ${{ env.region }}
+  #         role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+  #         aws-region: us-west-2
 
-  #     - name: ECR Repo login
-  #       uses: aws-actions/amazon-ecr-login@v1
-  #       id: ecr
+  #     - name: Fetch approval record from DynamoDB
+  #       id: get_decision
+  #       shell: bash
+  #       env:
+  #         TABLE: SlackApprovalNotification
+  #         AWS_REGION: ${{env.region}}
+  #         REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
+  #         ENVIRONMENT: ${{ env.account_name}}               # Set dynamically as needed
+  #       run: |
+  #         # Fetch item from DynamoDB
+  #         result=$(aws dynamodb get-item \
+  #           --table-name "$TABLE" \
+  #           --key "{\"repository\": {\"S\": \"$REPOSITORY\"}, \"environment\": {\"S\": \"$ENVIRONMENT\"}}" \
+  #           --region "$AWS_REGION" \
+  #           --output json 2>/dev/null || echo "{}")
+
+  #         echo "Raw DynamoDB result: $result"
+
+  #         # Extract decision field (status)
+  #         STATUS=$(echo "$result" | jq -r '.Item.decision.S // "none"')
+  #         echo "Retrieved decision: $STATUS"
+  #         echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+  #         # Extract environment from DynamoDB item for condition check
+  #         DB_ENVIRONMENT=$(echo "$result" | jq -r '.Item.environment.S // ""')
+  #         echo "Retrieved environment: $DB_ENVIRONMENT"
+
+  #         # Conditional logic: compare fetched environment with input and check status
+  #         if [[ "$DB_ENVIRONMENT" == "$ENVIRONMENT" && "$STATUS" == "approve" ]]; then
+  #           echo "✅ Approval confirmed"
+  #           echo "status=approve" >> $GITHUB_OUTPUT
+  #           exit 0
+  #         else
+  #           echo "❌ Not approved or environment mismatch"
+  #           echo "status=reject" >> $GITHUB_OUTPUT
+  #           exit 1
+  #         fi
+
+  # push:
+  #   needs: wait_for_approval
+  #   if: needs.wait_for_approval.outputs.status == 'approve'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Push Docker Image
+  #       run: echo "✅ Image approved. Pushing to ECR..."
+
+  # reject_handler:
+  #   needs: wait_for_approval
+  #   if: needs.wait_for_approval.outputs.status == 'reject'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Stop Deployment
+  #       run: echo "❌ Deployment rejected by Slack."
+
+  push:
+    needs: [detect-updates, build, scan]
+    runs-on: self-hosted
+    #  environment:
+    #    name: Release
+    strategy:
+      matrix:
+        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Variables from Config File
+        id: extract-vars
+        uses: ./.github/actions/extract-config-file
+        with:
+          config_file: ${{ matrix.config_file }}
+
+      - name: Extract AWS Account Number
+        uses: ./.github/actions/extract-account-number
+        with:
+          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+          aws-region: us-west-2
+
+      - name: Fetch Record from Dynomadb.
+        id: fecth-db-record
+        uses: ./.github/actions/fetch-approval
+        with:
+          TABLE: SlackApprovalNotification
+          AWS_REGION: ${{env.region}}
+          REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
+          ENVIRONMENT: ${{ env.account_name }}
+      - name: push job
+        run: |
+          status=${{ steps.fecth-db-record.outputs.status }}
+          environment=${{ steps.fecth-db-record.outputs.environment }}
+          echo $environment
+          echo $status
+          if [[ "${{ env.account_name }}" == "$environment" && "$status" == "approve" ]]; then
+          echo "✅ Approval confirmed"
+          echo "Docker image is pushing to ecr!!!!sucesfully"
+          else
+            echo "❌ Not approved or environment mismatch"
+            echo "Docker image has rejected by approver"
+            exit 1
+          fi
+
+  # #     - name: Role Assume
+  # #       uses: aws-actions/configure-aws-credentials@v4
+  # #       with:
+  # #         role-to-assume: arn:aws:iam::${{ env.account_number }}:role/${{ env.account_name }}-ghact-role-github-actions-assume-role
+  # #         aws-region: ${{ env.region }}
+
+  # #     - name: ECR Repo login
+  # #       uses: aws-actions/amazon-ecr-login@v1
+  # #       id: ecr
 
   #     - name: Push Docker Image to ECR
   #       run: |
-  #         docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+  #         echo "pushed docker image !!!"
+#docker push ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
 
   #     - name: Cleaning image from runner
   #       run: |
   #         docker rmi ${{ env.account_number }}.dkr.ecr.${{ env.region }}.amazonaws.com/${{ env.ecr_repo_name }}:${{ env.release_tag }}
+    
