@@ -1,19 +1,18 @@
 on:
-    push:
-#   workflow_dispatch:
-#     inputs:
-#       repository:
-#         required: true
-#         description: "please pass the repository name"
-#       environment:
-#         required: true
-#         description: "please pass the environment name"
-#       region:
-#         required: true
-#         description: "please pass the region name"
-#       image_tag:
-#         required: true
-#         description: "please pass the image tag"
+  workflow_dispatch:
+    inputs:
+      repository:
+        required: true
+        description: "please pass the repository name"
+      environment:
+        required: true
+        description: "please pass the environment name"
+      region:
+        required: true
+        description: "please pass the region name"
+      image_tag:
+        required: true
+        description: "please pass the image tag"
 jobs:
   push-to-ecr:
     runs-on: self-hosted
