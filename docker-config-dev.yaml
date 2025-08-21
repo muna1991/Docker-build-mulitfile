@@ -1,5 +1,5 @@
 ecr_repo_name: new-relic-repo
-docker_image_tag: v97
+docker_image_tag: v98
 dockerfile_location: ./Dockerfile
 account_name: ssdev
 region: us-west-2

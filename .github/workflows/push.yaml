@@ -1,0 +1,30 @@
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        required: true
+        description: "please pass the repository name"
+      environment:
+        required: true
+        description: "please pass the environment name"
+      region:
+        required: true
+        description: "please pass the region name"
+      image_tag:
+        required: true
+        description: "please pass the image tag"
+jobs:
+  push-to-ecr:
+    runs-on: self-hosted
+    steps: 
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to ECR
+        run: aws ecr get-login-password --region ${{ github.event.inputs.region }} | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com
+
+      - name: Push Docker Image
+        run: |
+          docker pull ${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
+          docker tag ${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }} <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com/${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
+          docker push <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com/${{ github.event.inputs.repository }}:${{ github.event.inputs.image_tag }}
