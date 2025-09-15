@@ -220,10 +220,10 @@ jobs:
           image_tag: ${{ env.release_tag }}
           environment: ${{ env.account_name}}
           region: ${{env.region}}
-      - name: ⏸ Wait for Slack Approval Window (5 minutes)
-        run: |
-          echo "⏳ Waiting for 5 minutes before checking approval..."
-          sleep 30  # Sleep for 300 seconds = 5 minutes
+      # - name: ⏸ Wait for Slack Approval Window (5 minutes)
+      #   run: |
+      #     echo "⏳ Waiting for 5 minutes before checking approval..."
+      #     sleep 30  # Sleep for 300 seconds = 5 minutes
 
   # wait_for_approval:
   #   runs-on: self-hosted
