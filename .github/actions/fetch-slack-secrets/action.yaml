@@ -4,7 +4,7 @@ inputs:
   secret_name:
     description: "AWS Secrets Manager secret name"
     required: true
-    default: "slack-notification"
+    default: "infssdev-or-ghact-secretsmanager-lambda-ghact"
 
 outputs:
   slack_token:
@@ -28,8 +28,8 @@ runs:
 
         echo "$secret" | jq .
 
-        slack_token=$(echo "$secret" | jq -r '.SLACK_BOT_TOKEN')
-        channel_id=$(echo "$secret" | jq -r '.SLACK_CHANNEL_ID')
+        slack_token=$(echo "$secret" | jq -r '.slack_bot_token')
+        channel_id=$(echo "$secret" | jq -r '.slack_channel_id')
 
         echo "slack_token=$slack_token" >> "$GITHUB_OUTPUT"
         echo "channel_id=$channel_id" >> "$GITHUB_OUTPUT"
