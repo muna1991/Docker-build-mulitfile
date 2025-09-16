@@ -4,7 +4,7 @@ inputs:
   secret_name:
     description: "AWS Secrets Manager secret name"
     required: true
-    default: "infssdev-or-ghact-secretsmanager-lambda-ghact"
+    default: "arn:aws:secretsmanager:us-west-2:145565074481:secret:infssdev-or-ghact-secretsmanager-lambda-ghact-Uq1DwZ"
 
 outputs:
   slack_token:
