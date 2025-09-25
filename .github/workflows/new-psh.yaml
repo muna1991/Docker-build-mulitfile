@@ -1,8 +1,7 @@
 name: Push Docker Image
 
 on:
-  push:
-#   workflow_dispatch:   # 👈 allows manual trigger
+  workflow_dispatch:   # 👈 allows manual trigger
 
 jobs:
   push-image:
