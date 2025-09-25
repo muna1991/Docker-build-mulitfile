@@ -5,7 +5,7 @@ on:
 
 jobs:
   say-hello:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Print Hello
         run: echo "👋 Hello, this workflow was triggered manually!"
