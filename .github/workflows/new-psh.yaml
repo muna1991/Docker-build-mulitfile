@@ -1,0 +1,20 @@
+name: Push Docker Image
+
+on:
+  workflow_dispatch:   # 👈 allows manual trigger
+
+jobs:
+  push-image:
+    runs-on: self-hosted
+    steps:
+      - name: Validate Slack Approval
+        run: |
+          echo "push job working!!!"
+
+    #   - name: Login to ECR
+    #     run: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+
+    #   - name: Push Docker Image
+    #     run: |
+    #       docker tag myapp:${{ github.sha }} <account>.dkr.ecr.us-east-1.amazonaws.com/myapp:${{ github.sha }}
+    #       docker push <account>.dkr.ecr.us-east-1.amazonaws.com/myapp:${{ github.sha }}

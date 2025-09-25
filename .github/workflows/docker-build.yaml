@@ -210,7 +210,7 @@ jobs:
       #   uses: ./.github/actions/fetch-slack-secrets
       #   id: slack_secrets
 
-      - name: Send Slack Approval Request
+      - name: Request GitHub Approval via Slack
         if: steps.scan.outcome == 'success'
         uses: ./.github/actions/send-approval-slack
         with:
@@ -218,13 +218,14 @@ jobs:
           channel_id: ${{ steps.slack_secrets.outputs.channel_id }}
           repository: ${{ env.ecr_repo_name }}
           image_tag: ${{ env.release_tag }}
-          environment: ${{ env.account_name}}
-          region: ${{env.region}}
-      - name: ⏸ Wait for Slack Approval Window (5 minutes)
-        run: |
-          echo "⏳ Waiting for 5 minutes before checking approval..."
-          sleep 30  # Sleep for 300 seconds = 5 minutes
+          environment: ${{ env.account_name }}
+          region: ${{ env.region }}
+          approval_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}  # GitHub approval link
 
+      - name: ⏸ Wait for Approval Window (Optional)
+        run: |
+          echo "⏳ Waiting 5 minutes for user approval..."
+          sleep 300
   # wait_for_approval:
   #   runs-on: self-hosted
   #   strategy:
@@ -303,60 +304,60 @@ jobs:
   #     - name: Stop Deployment
   #       run: echo "❌ Deployment rejected by Slack."
 
-  push:
-    needs: [detect-updates, build, scan]
-    runs-on: self-hosted
-    #  environment:
-    #    name: Release
-    strategy:
-      matrix:
-        config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # push:
+  #   needs: [detect-updates, build, scan]
+  #   runs-on: self-hosted
+  #   #  environment:
+  #   #    name: Release
+  #   strategy:
+  #     matrix:
+  #       config_file: ${{ fromJson(needs.detect-updates.outputs.matrix || '[]') }}
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Extract Variables from Config File
-        id: extract-vars
-        uses: ./.github/actions/extract-config-file
-        with:
-          config_file: ${{ matrix.config_file }}
+  #     - name: Extract Variables from Config File
+  #       id: extract-vars
+  #       uses: ./.github/actions/extract-config-file
+  #       with:
+  #         config_file: ${{ matrix.config_file }}
 
-      - name: Extract AWS Account Number
-        uses: ./.github/actions/extract-account-number
-        with:
-          acc_name: ${{ steps.extract-vars.outputs.acc_name }}
+  #     - name: Extract AWS Account Number
+  #       uses: ./.github/actions/extract-account-number
+  #       with:
+  #         acc_name: ${{ steps.extract-vars.outputs.acc_name }}
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
-          aws-region: us-west-2
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: arn:aws:iam::962923300779:role/github-actions-workflow-role
+  #         aws-region: us-west-2
 
-      - name: Fetch Record from Dynomadb.
-        id: fecth-db-record
-        uses: ./.github/actions/fetch-approval
-        with:
-          TABLE: SlackApprovalNotification
-          AWS_REGION: ${{env.region}}
-          REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
-          ENVIRONMENT: ${{ env.account_name }}
-      - name: push job
-        run: |
-          status=${{ steps.fecth-db-record.outputs.status }}
-          environment=${{ steps.fecth-db-record.outputs.environment }}
-          echo $environment
-          echo $status
-          if [[ "${{ env.account_name }}" == "$environment" && "$status" == "approve" ]]; then
-          echo "✅ Approval confirmed"
-          echo "Docker image is pushing to ecr!!!!sucesfully"
-          else
-            echo "❌ Not approved or environment mismatch"
-            echo "Docker image has rejected by approver"
-            exit 1
-          fi
+  #     - name: Fetch Record from Dynomadb.
+  #       id: fecth-db-record
+  #       uses: ./.github/actions/fetch-approval
+  #       with:
+  #         TABLE: SlackApprovalNotification
+  #         AWS_REGION: ${{env.region}}
+  #         REPOSITORY: ${{ env.ecr_repo_name }}        # Set dynamically as needed
+  #         ENVIRONMENT: ${{ env.account_name }}
+  #     - name: push job
+  #       run: |
+  #         status=${{ steps.fecth-db-record.outputs.status }}
+  #         environment=${{ steps.fecth-db-record.outputs.environment }}
+  #         echo $environment
+  #         echo $status
+  #         if [[ "${{ env.account_name }}" == "$environment" && "$status" == "approve" ]]; then
+  #         echo "✅ Approval confirmed"
+  #         echo "Docker image is pushing to ecr!!!!sucesfully"
+  #         else
+  #           echo "❌ Not approved or environment mismatch"
+  #           echo "Docker image has rejected by approver"
+  #           exit 1
+  #         fi
 
   # #     - name: Role Assume
   # #       uses: aws-actions/configure-aws-credentials@v4

@@ -9,16 +9,13 @@ async function run() {
         const environment = core.getInput('environment');
         const region = core.getInput('region');
         const imageTag = core.getInput('image_tag');
+        const approvalUrl = core.getInput('approval_url'); // GitHub approval link
 
         const slack = new WebClient(token);
 
-        // Button values encode all data: decision:repository:environment:region:image_tag
-        const approveValue = `approve:${repository}:${environment}:${region}:${imageTag}`;
-        const rejectValue = `reject:${repository}:${environment}:${region}:${imageTag}`;
-
         await slack.chat.postMessage({
             channel: channel,
-            text: `Docker image *${repository}*:*${imageTag}* is ready for push to *${environment}*`,
+            text: `Docker image *${repository}*:*${imageTag}* is ready for push to *${environment}*.\nPlease approve here: ${approvalUrl}`,
             attachments: [
                 {
                     text: 'Approve or Reject this deployment',
@@ -29,14 +26,14 @@ async function run() {
                             name: 'approve',
                             text: 'Approve ✅',
                             type: 'button',
-                            value: approveValue,
+                            url: approvalUrl,
                             style: 'primary'
                         },
                         {
                             name: 'reject',
                             text: 'Reject ❌',
                             type: 'button',
-                            value: rejectValue,
+                            value: `reject:${repository}:${environment}:${region}:${imageTag}`,
                             style: 'danger'
                         }
                     ]

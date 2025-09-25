@@ -6,19 +6,23 @@ inputs:
     description: "Slack bot token"
   channel_id:
     required: true
-    description: "Slack channel ID"
+    description: "channel ID"
   repository:
     required: true
-    description: "Repository name"
+    description: "Repository"
   environment:
     required: true
-    description: "Environment name"
+    description: "Environemnt"
   region:
     required: true
-    description: "Region name"
+    description: "region"
   image_tag:
     required: true
-    description: "Docker image tag"
+    description: "image tag"
+  approval_url:
+    required: true
+    description: "Approval status"
+
 runs:
   using: "node20"
   main: "index.js"
