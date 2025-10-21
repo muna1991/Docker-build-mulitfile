@@ -1,28 +1,30 @@
+name: Print PR Creator Info
+
 on:
-  workflow_dispatch:
-    inputs:
-      repository:
-        required: true
-        description: "please pass the repository name"
-      environment:
-        required: true
-        description: "please pass the environment name"
-      region:
-        required: true
-        description: "please pass the region name"
-      image_tag:
-        required: true
-        description: "please pass the image tag"
+  pull_request:
+    types: [opened, synchronize, reopened]
+
 jobs:
-  push-to-ecr:
+  print-info:
     runs-on: self-hosted
-    steps: 
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-    #   - name: Login to ECR
-    #     run: aws ecr get-login-password --region ${{ github.event.inputs.region }} | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com
-
-      - name: Push Docker Image
+      - name: check the github usr value
         run: |
-          echo "docker image is reday for push ${{ github.event.inputs.region }}, ${{ github.event.inputs.repository }}, ${{ github.event.inputs.image_tag }}, ${{github.event.inputs.environment}}"
+          echo "check github details"
+          echo ${{ github.actor }}
+          echo ${{github.event.pull_request.user.login}}
+
+  # push-to-ecr:
+  #   runs-on: self-hosted
+  #   steps: 
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #   #   - name: Login to ECR
+  #   #     run: aws ecr get-login-password --region ${{ github.event.inputs.region }} | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.${{ github.event.inputs.region }}.amazonaws.com
+
+  #     - name: Push Docker Image
+  #       run: |
+  #         echo "docker image is reday for push ${{ github.event.inputs.region }}, ${{ github.event.inputs.repository }}, ${{ github.event.inputs.image_tag }}, ${{github.event.inputs.environment}}"
