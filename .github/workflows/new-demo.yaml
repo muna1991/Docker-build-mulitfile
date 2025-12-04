@@ -1,0 +1,16 @@
+name: test-demo
+on:
+  push:
+    branches_ignore:
+      - main
+
+jobs:
+  demo-job:
+    runs-on: self-hosted
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: executr bash code
+        run: |
+          echo "hellow World"
+
