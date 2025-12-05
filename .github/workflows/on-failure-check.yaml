@@ -23,6 +23,5 @@ jobs:
           echo "this is failure steps"
       - name: test-always
         if: always()
-        runs: |
+        run: |
           echo "this will execte always"
-          
