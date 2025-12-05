@@ -10,4 +10,4 @@ jobs:
       - name: build-script
         run: |
           echo "building script"
-          echo "$GITHUB_WORKSPACE"
+          $GITHUB_WORKSPACE/test/test.sh
