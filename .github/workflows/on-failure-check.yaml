@@ -7,6 +7,8 @@ jobs:
   build-job:
     runs-on: self-hosted
     steps:
+      - name: checkout code
+        uses: actions/checkout@v5
       - name: build-script
         run: |
           echo "building script"
