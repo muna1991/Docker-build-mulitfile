@@ -1,8 +1,4 @@
 name: test-demo
-# on:
-#   push:
-#     branches_ignore:
-#       - main
   on:
     schedule:
       - cron: */5 * * * *
@@ -16,3 +12,9 @@ jobs:
         run: |
           echo "hellow World"
 
+
+
+# on:
+#   push:
+#     branches_ignore:
+#       - main
