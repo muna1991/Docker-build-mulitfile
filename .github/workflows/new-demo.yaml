@@ -3,7 +3,6 @@ on:
   push:
     branches_ignore:
       - main
-
 jobs:
   demo-job:
     runs-on: self-hosted
