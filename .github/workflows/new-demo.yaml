@@ -1,7 +1,7 @@
 name: test-demo
 on:
   schedule:
-    - cron: */5 * * * *
+    - cron: "*/5 * * * *"
 jobs:
   demo-job:
     runs-on: self-hosted
