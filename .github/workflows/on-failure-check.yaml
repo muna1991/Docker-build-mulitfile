@@ -13,3 +13,16 @@ jobs:
         run: |
           echo "building script"
           sh $GITHUB_WORKSPACE/test/test.sh
+      - name: test-script
+        if: success()
+        run: |
+          echo "sucees test result"
+      - name: test-failure
+        if: failure()
+        run: |
+          echo "this is failure steps"
+      - name: test-always
+        if: always()
+        runs: |
+          echo "this will execte always"
+          
