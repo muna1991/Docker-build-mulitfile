@@ -1,0 +1,13 @@
+name: check failure application
+
+on:
+  push:
+
+jobs:
+  build-job:
+    runs-on: self-hosted
+    steps:
+      - name: build-script
+        run: |
+          echo "building script"
+          pwd
