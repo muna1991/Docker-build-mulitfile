@@ -34,5 +34,5 @@ jobs:
         run: |
           echo "${{github.repository}}"
           echo "${{github.ref}}"
-          echo "${{github.author}}"
+          echo "${{github.actor}}"
           echo "${{github.sha}}"
