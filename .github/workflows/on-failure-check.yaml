@@ -25,3 +25,14 @@ jobs:
         if: always()
         run: |
           echo "this will execte always"
+  test-job:
+    runs-on: self-hosted
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v5
+      - name: excute default variable printing
+        run: |
+          echo "${{github.repository}}"
+          echo "${{github.ref}}"
+          echo "${{github.author}}"
+          echo "${{github.sha}}"
