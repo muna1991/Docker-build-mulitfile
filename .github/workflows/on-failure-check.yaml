@@ -36,3 +36,4 @@ jobs:
           echo "${{github.ref}}"
           echo "${{github.actor}}"
           echo "${{github.sha}}"
+          echo "${{github.workflow}}"
