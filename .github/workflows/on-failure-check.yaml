@@ -2,7 +2,6 @@ name: check failure application
 
 on:
   push:
-# concurrency: single-build
 
 jobs:
   build-job:
@@ -28,6 +27,7 @@ jobs:
           echo "this will execte always"
   test-job:
     runs-on: self-hosted
+    concurrency: single-build
     steps:
       - name: checkout code
         uses: actions/checkout@v5
@@ -40,3 +40,14 @@ jobs:
           echo "${{github.workflow}}"
           sleep 60
           echo "hellow no-concurrency"
+  test-concurrency:
+    runs-on: self-hosted
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v5
+      - name: excute default variable printing
+        run: |
+          echo "${{github.repository}}"
+          echo "${{github.ref}}"
+          echo "${{github.actor}}"
+          sleep 40
