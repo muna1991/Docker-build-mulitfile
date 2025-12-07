@@ -38,3 +38,4 @@ jobs:
           echo "${{github.actor}}"
           echo "${{github.sha}}"
           echo "${{github.workflow}}"
+          sleep 60
