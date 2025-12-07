@@ -39,4 +39,4 @@ jobs:
           echo "${{github.sha}}"
           echo "${{github.workflow}}"
           sleep 60
-          echo "hellow concurrency"
+          echo "hellow no-concurrency"
