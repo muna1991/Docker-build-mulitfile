@@ -50,6 +50,4 @@ jobs:
           echo "${{github.actor}}"
           sleep 40
           echo "new jobs"
-
-
 # concurrency: single-build
