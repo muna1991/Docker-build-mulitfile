@@ -2,6 +2,7 @@ name: check failure application
 
 on:
   push:
+concurrency: single-build
 
 jobs:
   build-job:
