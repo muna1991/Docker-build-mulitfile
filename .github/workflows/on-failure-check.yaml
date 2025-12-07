@@ -2,8 +2,6 @@ name: check failure application
 
 on:
   push:
-concurrency: single-build
-
 jobs:
   build-job:
     runs-on: self-hosted
@@ -52,3 +50,6 @@ jobs:
           echo "${{github.actor}}"
           sleep 40
           echo "new jobs"
+
+
+# concurrency: single-build
