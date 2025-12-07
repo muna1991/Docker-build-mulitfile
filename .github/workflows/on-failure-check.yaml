@@ -2,6 +2,7 @@ name: check failure application
 
 on:
   push:
+concurrency: single-build
 
 jobs:
   build-job:
@@ -27,7 +28,6 @@ jobs:
           echo "this will execte always"
   test-job:
     runs-on: self-hosted
-    concurrency: single-build
     steps:
       - name: checkout code
         uses: actions/checkout@v5
