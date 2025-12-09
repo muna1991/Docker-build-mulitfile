@@ -1,0 +1,14 @@
+name: on-workflow-dispacth
+
+on:
+  workflow-disptach:
+    
+jobs:
+  test-job:
+    runs-on: self-hosted
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v5
+      - name: execute bash script
+        run: |
+          echo "test-job"
