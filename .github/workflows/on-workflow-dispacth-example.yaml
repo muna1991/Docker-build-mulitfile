@@ -1,6 +1,9 @@
 name: on-workflow-dispatch-example
 
 on:
+  push:
+    branches:
+      - feature/new-demo-test
   workflow_dispatch:
 
 jobs:

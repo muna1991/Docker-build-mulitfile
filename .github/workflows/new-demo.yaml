@@ -1,7 +1,7 @@
 name: run evry 5 minutes
 on:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 5 * * *'
 jobs:
   demo-job:
     runs-on: self-hosted
