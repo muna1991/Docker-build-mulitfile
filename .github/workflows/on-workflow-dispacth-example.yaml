@@ -1,14 +1,14 @@
-name: on-workflow-dispacth
+name: on-workflow-dispatch-example
 
 on:
   workflow_dispatch:
-    
+
 jobs:
   test-job:
     runs-on: self-hosted
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v5
-      - name: execute bash script
-        run: |
-          echo "hello test-job"
+
+      - name: Execute bash script
+        run: echo "test-job"
