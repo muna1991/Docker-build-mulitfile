@@ -10,4 +10,4 @@ jobs:
         uses: actions/checkout@v5
       - name: execute bash script
         run: |
-          echo "test-job"
+          echo "hello test-job"
