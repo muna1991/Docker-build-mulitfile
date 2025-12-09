@@ -1,7 +1,6 @@
 name: on-workflow-dispacth
 
-on:
-  workflow-disptach:
+on: workflow_dispatch
     
 jobs:
   test-job:
