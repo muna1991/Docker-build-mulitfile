@@ -1,12 +1,17 @@
-Self-Hosted Runner Setup
-1. Create an EC2 Server
-Follow the steps below to set up a self-hosted runner on an EC2 instance.
+## Self-Hosted Runner Setup
 
-The runner is created in the SSPROD account since we already have Salesforce registry connectivity.
-Once the EC2 instance is ready, SSH into it and execute the following commands.
-Note: The runner setup commands should be taken directly from GitHub instead of copying from this document to ensure they are up to date.
+### 1. Create an EC2 Server
 
-2. Install the Self-Hosted Runner
+Follow the steps below to set up a self-hosted runner on an **EC2 instance**.
+
+- The runner is created in the **SSPROD** account since we already have Salesforce registry connectivity.
+- Once the EC2 instance is ready, **SSH** into it and execute the following commands.
+
+**Note:** The runner setup commands should be taken directly from GitHub instead of copying from this document to ensure they are up to date.
+
+## 2. Install the Self-Hosted Runner
+
+```bash
 # Create a folder
 mkdir actions-runner && cd actions-runner
 
@@ -24,17 +29,24 @@ tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz
 
 # Run the runner
 ./run.sh
-Make it run in the background
+```
+
+### Make it run in the background
+```bash
 nohup ./run.sh > output.log 2>&1 &
-⚠️ Important:### Make the runner to run in systemd service if the systme will reboot then automatically it will start.
+```
+⚠️ **Important:**### Make the runner to run in systemd service if the systme will reboot then automatically it will start.
+#### 3. Configure GitHub Actions Runner as a Systemd Service
 
-3. Configure GitHub Actions Runner as a Systemd Service
-Note: To ensure the GitHub Actions self-hosted runner starts automatically on EC2 reboot, follow the steps below.
+> **Note**: To ensure the GitHub Actions self-hosted runner starts automatically on EC2 reboot, follow the steps below.
 
-3.1: Create a Systemd Unit File
+#### 3.1: Create a Systemd Unit File
+
 Run:
-
+```bash
 sudo vi /etc/systemd/system/github-runner.service
+```
+```
 [Unit]
 Description=GitHub Actions Runner
 After=network.target
@@ -49,16 +61,20 @@ ExecStart=/bin/bash /home/m.mahapatra/actions-runner/run.sh
 
 [Install]
 WantedBy=multi-user.target
+```
 📝 Note: Make sure the ExecStart path matches the actual location of your run.sh script.
 
-Step3.2: Reload and Enable the Service
+- Step3.2: Reload and Enable the Service
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable github-runner.service
 sudo systemctl restart github-runner.service
 sudo systemctl status github-runner.service
-Post Configuration Steps
+```
+### Post Configuration Steps
 After setting up the runner, install necessary dependencies to support pipelines globally.
 
+```bash
 #Install `jq` and `yq`
 sudo curl -L -o /usr/local/bin/jq https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64
 sudo chmod +x /usr/local/bin/jq
@@ -94,54 +110,64 @@ docker image ls
 If **permission denied** error occurs:
 
 sudo chmod 666 /var/run/docker.sock
-4. Verify the Runner Installation
-Navigate to GitHub Organization Directory
-Click Settings → Actions → Runners
-Ensure the Linux self-hosted runner appears
-5. Conclusion
-Once all steps are executed successfully, your self-hosted runner should be visible on GitHub and ready to use.
+```
 
-Workflow Trigger
+## 4. Verify the Runner Installation
+
+1. Navigate to **GitHub Organization Directory**
+2. Click **Settings** → **Actions** → **Runners**
+3. Ensure the **Linux self-hosted runner** appears
+
+## 5. Conclusion
+
+Once all steps are executed successfully, your **self-hosted runner** should be visible on GitHub and ready to use.
+
+## Workflow Trigger
 This workflow is triggered by:
+- **Workflow Call**: It is designed to be reusable and can be triggered by another workflow.
 
-Workflow Call: It is designed to be reusable and can be triggered by another workflow.
-Jobs
-1. Detect Updates
-Purpose:
+## Jobs
 
-Detects changes in docker-config*.yaml files.
-Creates a matrix for processing updated configurations.
-Key Steps:
+### 1. Detect Updates
+**Purpose:**
+- Detects changes in `docker-config*.yaml` files.
+- Creates a matrix for processing updated configurations.
 
-Checkout code.
-Identify changed Docker configuration files.
-Store the updated files as a JSON matrix for the next job.
-2. Pipeline Processing
-Purpose:
+**Key Steps:**
+- Checkout code.
+- Identify changed Docker configuration files.
+- Store the updated files as a JSON matrix for the next job.
 
-Processes each updated Docker configuration file.
-Builds, scans, and pushes Docker images to AWS ECR.
-Key Steps:
+### 2. Pipeline Processing
+**Purpose:**
+- Processes each updated Docker configuration file.
+- Builds, scans, and pushes Docker images to AWS ECR.
 
-Checkout code.
-Extracts details from the configuration file (ECR repo name, release tag, Dockerfile location, AWS account, and region).
-Maps the AWS account based on the environment.
-Validates the existence of the Dockerfile.
-Builds the Docker image.
-Scans the image for vulnerabilities using Trivy.
-Assumes the required AWS IAM role.
-Docker-config file input parameters
-Variable	Description	Requirement
-ecr_repo_name	Name of the target ECR repository	Mandatory
-release_tag	Tag assigned to the Docker image	Mandatory
-dockerfile_location	Path to the Dockerfile	Mandatory
-account_name	AWS account environment (e.g., dev, qa, prod)	Mandatory
-region	AWS region	Mandatory
-skip_vulnerability	User input - if they want to skip the vulnerability scan	Optional
+**Key Steps:**
+- Checkout code.
+- Extracts details from the configuration file (ECR repo name, release tag, Dockerfile location, AWS account, and region).
+- Maps the AWS account based on the environment.
+- Validates the existence of the Dockerfile.
+- Builds the Docker image.
+- Scans the image for vulnerabilities using Trivy.
+- Assumes the required AWS IAM role.
+
+## Docker-config file input parameters
+| Variable            | Description                                              | Requirement  |
+|---------------------|----------------------------------------------------------|-------------|
+| `ecr_repo_name`    | Name of the target ECR repository                         | Mandatory   |
+| `release_tag`      | Tag assigned to the Docker image                          | Mandatory   |
+| `dockerfile_location` | Path to the Dockerfile                                | Mandatory   |
+| `account_name`     | AWS account environment (e.g., dev, qa, prod)             | Mandatory   |
+| `region`          | AWS region                                                | Mandatory   |
+| `skip_vulnerability` | User input - if they want to skip the vulnerability scan | Optional   |
+
 skip_vulnerability:- This variable is optional; by default, it is set to false. The user can pass true if he want to bypass the vulnerability.
 
-Account Mapping
-We have separate account-map.yaml file which will have all the account details. The script includes a predefined mapping of AWS account numbers for different environments:
+## Account Mapping
+- We have separate account-map.yaml file which will have all the account details.
+The script includes a predefined mapping of AWS account numbers for different environments:
+```yaml
    infdev: "832066258344"
    infssdev: "145565074481"
    dev: "200102753645"
@@ -155,23 +181,32 @@ We have separate account-map.yaml file which will have all the account details. 
    ssprod: "833608842610"
    uipprod: "552085469008"
    soxprod: "108720275529"
-Security Scanning
-Trivy: Scans images for vulnerabilities with HIGH and CRITICAL severity.
-Docker Scout (Commented Out): Can be enabled for additional security checks.
-Role Assumption
-The workflow assumes an AWS IAM role using aws-actions/configure-aws-credentials@v4 before pushing images to ECR.
+```
 
-Creation of IAM Role and OIDC Provider:
-In each account we created IAM role and OIDC provider.
-Code Link.
-IAM role is required to push the image to ecr repositories. This role has access to ecr repos. We are assuming this role in our pipeline.
-As per github actions documentation OIDC provider is mandatory if we want to assume the aws iam role in our pipeline so we have created the OIDC provider in all the accounts. This oidc provider arn is added into the Trust policy of above iam role.
-Usage
+## Security Scanning
+- **Trivy**: Scans images for vulnerabilities with `HIGH` and `CRITICAL` severity.
+- **Docker Scout (Commented Out)**: Can be enabled for additional security checks.
+
+## Role Assumption
+The workflow assumes an AWS IAM role using `aws-actions/configure-aws-credentials@v4` before pushing images to ECR.
+
+## Creation of IAM Role and OIDC Provider:
+
+1. In each account we created IAM role and OIDC provider.
+2. [Code Link](https://github.com/bt-public-cloud-emu/awf03-prj-pubcloud-ghact-tf-aws/blob/main/manifests/all-account-assume-role.yaml).
+3. IAM role is required to push the image to ecr repositories. This role has access to ecr repos. We are assuming this role in our pipeline.
+4. As per github actions documentation OIDC provider is mandatory if we want to assume the aws iam role in our pipeline so we have created the OIDC provider in all the accounts. This oidc provider arn is added into the Trust policy of above iam role.
+
+
+## Usage
 This workflow can be used by calling it from another workflow:
-
+```yaml
 jobs:
   build-and-push:
     uses: <owner>/<repo>/.github/workflows/docker-image-build-push-multifile.yaml@main
-Notes
-Ensure the required AWS IAM permissions are in place.
+```
+
+## Notes
+- Ensure the required AWS IAM permissions are in place.
+---
 This workflow ensures an automated, secure, and efficient process for managing Docker image builds and deployments in AWS ECR.
